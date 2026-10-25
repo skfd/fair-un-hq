@@ -53,10 +53,9 @@ UG UA AE GB US UY UZ VU VE VN YE ZM ZW
 
 # Capitals where GeoNames has no PPLC, as cc -> GeoNames geonameid (looked up in the dumps).
 CAPITAL_OVERRIDES = {
-    # Israel: GeoNames codes no PPLC for IL (Jerusalem is PPLA). Jerusalem is the capital Israel
-    # proclaims and its seat of government (Knesset, ministries, Supreme Court); its status is
-    # internationally disputed and most embassies sit in Tel Aviv. Change here if wanted.
-    "IL": 281184,  # Jerusalem
+    # Israel: GeoNames codes no PPLC for IL. Jerusalem's status is internationally disputed;
+    # we follow where most embassies sit and use Tel Aviv (owner's call, 2026-10-24).
+    "IL": 293397,  # Tel Aviv
 }
 
 # Countries with more than one claimant capital. All of these take GeoNames' PPLC (the official
@@ -85,7 +84,7 @@ CAPITAL_NOTES = {
     "ME": "Podgorica; Cetinje is the old royal capital.",
     "YE": "Sanaa (constitutional); the recognised government has worked from Aden.",
     "SD": "Khartoum; the government moved to Port Sudan during the war.",
-    "IL": "Jerusalem (override, see CAPITAL_OVERRIDES).",
+    "IL": "Tel Aviv (override, see CAPITAL_OVERRIDES).",
 }
 
 
