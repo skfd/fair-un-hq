@@ -97,8 +97,37 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
   antipode of the fair HQ.
 - The dial is capped at p=8.
 
+## Running it
+
+Double-click `web/index.html`. It needs the generated `web/data/`, which is gitignored. From a
+fresh clone, build it first:
+
+```sh
+python -m venv .venv && .venv/Scripts/pip install numpy rasterio xarray h5netcdf h5py
+sh scripts/fetch_ghsl.sh      # ~5.5 GB, GHS-POP 30 arcsec, 12 epochs
+sh scripts/fetch_isimip.sh    # ~220 MB, ISIMIP 30 arcmin history + SSP1/3/5
+.venv/Scripts/python scripts/build_data.py    # ~5 min, writes web/data/*.js + checks.md
+.venv/Scripts/python scripts/build_towns.py   # GeoNames towns + UN member capitals
+```
+
+Without `web/data/`, the page falls back to a synthetic mock (`web/mock/`).
+
 ## Status
 
-- **Maths:** the reference version is in `scripts/fair.py`.
-- **Data:** ISIMIP and GHSL are downloaded (`scripts/fetch_*.sh`).
-- **Pipeline and page:** in progress.
+- **Built:**
+  - The data pipeline. Its checks are in `docs/checks.md`.
+  - The globe page, with every feature listed under "Decided".
+  - The JS solver. It matches the Python reference (`scripts/fair.py`) to under 1 m on all
+    79 frames.
+- **Findings:**
+  - The fair HQ sits in Punjab in 2020.
+  - It drifts west through Baluchistan by 2100 (SSP1/SSP5), or to near Abqaiq in Saudi
+    Arabia (SSP3).
+  - The worst-off (99.9%) point has two real basins, the Levant and the North Pole, and
+    flips between them.
+- **Known gaps:**
+  - A dial tick above p=2 takes about 70–110 ms, against a 50 ms target. A Web Worker pool
+    would fix that.
+  - HYDE antiquity is still pending.
+  - GHS-SMOD for urban/rural is still pending.
+  - Generated data isn't committed.
