@@ -51,10 +51,16 @@ def centroid(xyz, w):
 
 
 def fair_point(xyz, w, p=1.0, x0=None, iters=500, tol=1e-12):
-    """Minimise sum w * angle^p by iteratively reweighted Riemannian steps (Weiszfeld at p=1)."""
+    """Minimise sum w * angle^p on the sphere.
+
+    p <= 2: iteratively reweighted Riemannian steps (Weiszfeld at p=1), which descend there.
+    p > 2: the reweighting overshoots and wanders, so use gradient descent with backtracking.
+    """
     x = centroid(xyz, w) if x0 is None else x0
     x = x / np.linalg.norm(x)
     eps = 1e-9
+    if p > 2:
+        return _descend(xyz, w, p, x, iters, tol)
     for _ in range(iters):
         v, th = log_map(x, xyz)
         a = w * np.maximum(th, eps) ** (p - 2)
@@ -66,12 +72,65 @@ def fair_point(xyz, w, p=1.0, x0=None, iters=500, tol=1e-12):
     return x
 
 
+def _descend(xyz, w, p, x, iters, tol):
+    f = lambda y: np.sum(w * angles(y, xyz) ** p)
+    fx, t = f(x), 0.1
+    for _ in range(iters):
+        v, th = log_map(x, xyz)
+        g = ((w * th ** (p - 2))[:, None] * v).sum(0) / w.sum()  # minus the gradient / p, scaled
+        while t > 1e-14:
+            y = exp_map(x, t * g / max(np.linalg.norm(g), 1e-300))
+            fy = f(y)
+            if fy < fx:
+                break
+            t /= 2
+        else:
+            return x
+        if np.linalg.norm(y - x) < tol:
+            return y
+        x, fx, t = y, fy, t * 2
+    return x
+
+
+def quantile_distance(x, xyz, w, q):
+    """Distance (km) within which a share q of people live, seen from x."""
+    d = angles(x, xyz)
+    o = np.argsort(d)
+    c = np.cumsum(w[o]) / w.sum()
+    return d[o][min(np.searchsorted(c, q), len(d) - 1)] * R_KM
+
+
+def worst_off_point(xyz, w, q=0.999, n_seeds=4000, seed=0):
+    """Clipped minimax: the point minimising the distance that covers a share q of humanity.
+
+    q=1 is decided by the remotest few islands, so the page clips. Non-smooth: seed + random refine.
+    """
+    rng = np.random.default_rng(seed)
+    best = min(fibonacci(n_seeds), key=lambda s: quantile_distance(s, xyz, w, q))
+    b, step = quantile_distance(best, xyz, w, q), 0.05
+    while step > 1e-4:
+        improved = False
+        for _ in range(40):
+            c = best + rng.normal(size=3) * step
+            c /= np.linalg.norm(c)
+            cb = quantile_distance(c, xyz, w, q)
+            if cb < b:
+                best, b, improved = c, cb, True
+        if not improved:
+            step /= 2
+    return best, b
+
+
+def fibonacci(n):
+    i = np.arange(n) + 0.5
+    phi = np.arccos(1 - 2 * i / n)
+    th = np.pi * (1 + 5**0.5) * i
+    return np.stack([np.cos(th) * np.sin(phi), np.sin(th) * np.sin(phi), np.cos(phi)], 1)
+
+
 def fair_point_global(xyz, w, p=1.0, n_seeds=400):
     """The objective is not convex on the sphere: seed from a Fibonacci sphere, refine the best few."""
-    i = np.arange(n_seeds) + 0.5
-    phi = np.arccos(1 - 2 * i / n_seeds)
-    th = np.pi * (1 + 5**0.5) * i
-    seeds = np.stack([np.cos(th) * np.sin(phi), np.sin(th) * np.sin(phi), np.cos(phi)], 1)
+    seeds = fibonacci(n_seeds)
     costs = np.array([cost(s, xyz, w, p) for s in seeds])
     best = None
     for s in seeds[np.argsort(costs)[:5]]:
