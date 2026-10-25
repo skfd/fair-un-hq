@@ -73,9 +73,7 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
   equally. A refinement would use each country's own population median.
 - **Wikipedia blurbs** for the nearest-town card. The town names come from GeoNames
   `cities15000`.
-- **How anyone would know it worked.** The p=1 point should land roughly in South / Central
-  Asia or the Middle East and move as Asia and Africa grow. A sudden jump between epochs is
-  a bug until proven otherwise.
+
 
 ## Leads (unverified, evaluate before using)
 
@@ -119,7 +117,8 @@ Without `web/data/`, the page falls back to a synthetic mock (`web/mock/`).
   - The globe page, with every feature listed under "Decided".
   - The JS solver. It matches the Python reference (`scripts/fair.py`) to under 1 m on all
     79 frames.
-- **Findings:**
+- **Findings:** the sanity check holds. The trail is smooth and 0.5° matches 0.1° to 0.2 km
+  (see `docs/checks.md`).
   - The fair HQ sits in Punjab in 2020.
   - It drifts west through Baluchistan by 2100 (SSP1/SSP5), or to near Abqaiq in Saudi
     Arabia (SSP3).
