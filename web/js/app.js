@@ -296,14 +296,13 @@
   HQ.hash = hash;
 
   // ---------------------------------------------------------------- nearest town
-  var NOPE = /^(new york( city)?|geneva|genève|genf|vienna|wien|nairobi)$/i;   // the real UN never appears
   HQ.nearestTown = function (x) {
     var T = HQ.towns;
     if (!T) return null;
     var best = -1, bd = -2, X = T.xyz;
     for (var i = 0; i < T.n; i++) {
       var d = X[3 * i] * x[0] + X[3 * i + 1] * x[1] + X[3 * i + 2] * x[2];
-      if (d > bd && !NOPE.test(T.name[i])) { bd = d; best = i; }
+      if (d > bd) { bd = d; best = i; }
     }
     if (best < 0) return null;
     var tx = [X[3 * best], X[3 * best + 1], X[3 * best + 2]];
