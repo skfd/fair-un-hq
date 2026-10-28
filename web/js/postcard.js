@@ -66,7 +66,7 @@
     while (c.measureText(title).width > pw - 68) { var fs = parseInt(c.font.match(/(\d+)px/)[1], 10) - 4; c.font = "bold " + fs + "px " + SERIF; }
     c.fillText(title, px + 32, py + 130);
     c.fillStyle = "#c8c4e4"; c.font = "18px " + SANS;
-    c.fillText("the fair HQ of humanity, " + st.year + (F.branch ? " (" + HQ.BRANCH[F.branch].code + ": " + HQ.BRANCH[F.branch].name + ")" : ""), px + 34, py + 164);
+    c.fillText("the fair UN HQ, " + st.year + (F.branch ? " (" + HQ.BRANCH[F.branch].code + ": " + HQ.BRANCH[F.branch].name + ")" : ""), px + 34, py + 164);
 
     // the divider
     c.strokeStyle = "#d9cdb2"; c.lineWidth = 1.5;
