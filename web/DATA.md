@@ -4,7 +4,7 @@ The page is opened straight from disk (`web/index.html`, file://). So: no `fetch
 modules, no CDN. Every data file is a plain `<script src="data/….js">` that writes into one
 global, `window.FAIR`, and libraries are vendored under `web/vendor/`.
 
-Generated files under `web/data/` are gitignored and rebuilt by scripts (see the README).
+Generated files under `web/data/` are committed so a clone opens as-is; rebuild them with the scripts (see the README).
 
 ## Grid
 

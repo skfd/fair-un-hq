@@ -67,8 +67,6 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
 - **Grid resolution.** 0.5° is assumed. The build checks it against finer GHSL aggregates.
 - **GHS-SMOD for urban/rural** in GHSL epochs, replacing the borrowed ISIMIP share.
 - **HYDE 3.3 for antiquity**, once it has been downloaded by hand.
-- **Hosting.** Generated `web/data/` is gitignored for now, so a clone needs the fetch and
-  build scripts.
 - **The country-vote point per state.** v1 uses each UN member state's capital, weighted
   equally. A refinement would use each country's own population median.
 - **Wikipedia blurbs** for the nearest-town card. The town names come from GeoNames
@@ -97,8 +95,8 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
 
 ## Running it
 
-Double-click `web/index.html`. It needs the generated `web/data/`, which is gitignored. From a
-fresh clone, build it first:
+Double-click `web/index.html`. The generated `web/data/` (about 21 MB) is committed, so a
+clone opens as-is. To rebuild it:
 
 ```sh
 python -m venv .venv && .venv/Scripts/pip install numpy rasterio xarray h5netcdf h5py
@@ -129,4 +127,3 @@ Without `web/data/`, the page falls back to a synthetic mock (`web/mock/`).
     would fix that.
   - HYDE antiquity is still pending.
   - GHS-SMOD for urban/rural is still pending.
-  - Generated data isn't committed.
