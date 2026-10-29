@@ -82,8 +82,10 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
 - HYDE (History Database of the Global Environment, PBL / Utrecht University): gridded
   historical population going back to 10,000 BC. Checked: the Kaggle 3.3 mirror's
   `popc_r.txt` is byte-identical to datahub.io's copy, and its grids sum to that table. Its
-  licence is muddled: YODA's metadata says CC BY-NC-SA 4.0, the readme says CC BY 3.0 and
-  Kaggle says CC BY-SA 4.0. Credit Klein Goldewijk / Utrecht whichever applies.
+  licence is CC BY 4.0 according to the DOI's registered metadata (DataCite,
+  10.24416/UU01-67UHB4). The other labels disagree: an earlier read of YODA's metadata said
+  CC BY-NC-SA 4.0, the readme says CC BY 3.0 and Kaggle says CC BY-SA 4.0. The DANS archive
+  of HYDE 3.2.1 is CC0.
 - UN World Population Prospects: country-level projections to 2100.
 - "Centre of world population" / "world population centre of gravity" is a known idea with
   earlier estimates. Look into it for prior art and as a comparison.
@@ -117,6 +119,13 @@ sh scripts/fetch_isimip.sh    # ~220 MB, ISIMIP 30 arcmin history + SSP1/3/5
 ```
 
 Without `web/data/`, the page falls back to a synthetic mock (`web/mock/`).
+
+## Licence
+
+The code is MIT (`LICENSE`). The generated `web/data/` is CC BY 4.0, adapted from HYDE 3.3
+(CC BY 4.0), GHSL (CC BY 4.0), ISIMIP (CC0) and GeoNames (CC BY 4.0). The sources and
+citations are in `LICENSE-DATA.md`. The vendored libraries keep their own licences
+(`web/vendor/LICENSES.md`).
 
 ## Status
 
