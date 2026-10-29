@@ -45,9 +45,9 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
     SSP2.
   - **Seams:** the joins at 1975 and 2030 are drawn as seams, with their size in km, not
     smoothed over.
-  - **Antiquity is later:** HYDE 3.3 (before 1850) sits behind an Anubis browser-only bot
-    wall at public.yoda.uu.nl. Download it by hand from a browser; scripts can't get
-    through.
+  - **Antiquity is later:** HYDE 3.3 (10,000 BC to 1850) is downloaded but not built yet.
+    Utrecht's own copy sits behind an Anubis bot wall, so `scripts/fetch_hyde.py` uses a
+    Kaggle mirror of it, with the DANS archive of HYDE 3.2.1 as a fallback.
 - **Data honesty: fade by confidence.** The trail is dotted for modelled years, solid for
   observed and dashed for projected, with the source named on hover.
 - **Silly landings: show the raw point and name the nearest town.** A "welcome to your new
@@ -66,7 +66,8 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
 
 - **Grid resolution.** 0.5° is assumed. The build checks it against finer GHSL aggregates.
 - **GHS-SMOD for urban/rural** in GHSL epochs, replacing the borrowed ISIMIP share.
-- **HYDE 3.3 for antiquity**, once it has been downloaded by hand.
+- **HYDE 3.3 for antiquity.** The grids are fetched. Its steps are irregular (1000, 100 and
+  then 10 years), and the timeline and dial assume 5-year frames.
 - **The country-vote point per state.** v1 uses each UN member state's capital, weighted
   equally. A refinement would use each country's own population median.
 - **Wikipedia blurbs** for the nearest-town card. The town names come from GeoNames
@@ -78,7 +79,10 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
 - GHSL data: the JRC GHSL site (ghsl.jrc.ec.europa.eu), GHS-POP (population) and GHS-SMOD
   (degree of urbanisation), epochs 1975–2030 in 5-year steps.
 - HYDE (History Database of the Global Environment, PBL / Utrecht University): gridded
-  historical population going back to 10,000 BC.
+  historical population going back to 10,000 BC. Checked: the Kaggle 3.3 mirror's
+  `popc_r.txt` is byte-identical to datahub.io's copy, and its grids sum to that table. Its
+  licence is muddled: YODA's metadata says CC BY-NC-SA 4.0, the readme says CC BY 3.0 and
+  Kaggle says CC BY-SA 4.0. Credit Klein Goldewijk / Utrecht whichever applies.
 - UN World Population Prospects: country-level projections to 2100.
 - "Centre of world population" / "world population centre of gravity" is a known idea with
   earlier estimates. Look into it for prior art and as a comparison.
@@ -102,6 +106,7 @@ clone opens as-is. To rebuild it:
 python -m venv .venv && .venv/Scripts/pip install numpy rasterio xarray h5netcdf h5py
 sh scripts/fetch_ghsl.sh      # ~5.5 GB, GHS-POP 30 arcsec, 12 epochs
 sh scripts/fetch_isimip.sh    # ~220 MB, ISIMIP 30 arcmin history + SSP1/3/5
+.venv/Scripts/python scripts/fetch_hyde.py    # ~500 MB, HYDE 3.3 popc 10000 BC-1850 (not built yet)
 .venv/Scripts/python scripts/build_data.py    # ~5 min, writes web/data/*.js + checks.md
 .venv/Scripts/python scripts/build_towns.py   # GeoNames towns + UN member capitals
 ```
@@ -125,5 +130,5 @@ Without `web/data/`, the page falls back to a synthetic mock (`web/mock/`).
 - **Known gaps:**
   - A dial tick above p=2 takes about 70–110 ms, against a 50 ms target. A Web Worker pool
     would fix that.
-  - HYDE antiquity is still pending.
+  - HYDE antiquity is fetched but not built into the page yet.
   - GHS-SMOD for urban/rural is still pending.
