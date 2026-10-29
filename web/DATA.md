@@ -25,7 +25,7 @@ aligned to it.
 
 ```js
 FAIR.addSeries({
-  id: "ghsl",                  // isimip-hist | ghsl | ssp1 | ssp3 | ssp5
+  id: "ghsl",                  // hyde | isimip-hist | ghsl | ssp1 | ssp3 | ssp5
   label: "GHSL GHS-POP R2023A",
   source: "EC JRC, Global Human Settlement Layer",
   url: "https://ghsl.jrc.ec.europa.eu/",
@@ -42,11 +42,14 @@ FAIR.addSeries({
 - **Urban share:** `urban_people = people * u / 255`. Rural is the rest. `null` means the
   source has no split.
 - **The series and their years:**
+  - `hyde`: HYDE 3.3, `modelled`, at HYDE's own steps: 10,000 BC to 0 every 1000 years, 0 to
+    1700 every 100, 1700 to 1840 every 10 (42 frames; BC years are negative, 0 is HYDE's
+    "0 AD"). `urban` is `null`: the build fetches only HYDE's total population.
   - `isimip-hist`: 1850–1970 every 5 years, `modelled` (a HYDE-based reconstruction).
   - `ghsl`: 1975–2020 `observed`, 2025 and 2030 `projected`. This is the backbone.
   - `ssp1`, `ssp3`, `ssp5`: 2035–2100 every 5 years, `projected`. The trail forks after
     2030.
-- **Seams** at 1975 (`isimip-hist` → `ghsl`) and 2030 (`ghsl` → each SSP) are drawn as
+- **Seams** at 1850 (`hyde` → `isimip-hist`), 1975 (`isimip-hist` → `ghsl`) and 2030 (`ghsl` → each SSP) are drawn as
   seams, not smoothed over.
 
 ## `data/reference.js` (Python truth, for testing the JS port and for warm starts)

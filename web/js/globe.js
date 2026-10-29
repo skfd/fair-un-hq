@@ -304,7 +304,7 @@
       c.beginPath(); c.moveTo(p.x - 2.5, p.y); c.lineTo(p.x + 2.5, p.y); c.stroke();
       var f = s.f, km = S.km(s.a, s.b);
       out.push({ x: p.x, y: p.y, r: 6, html: function () {
-        return "<b>Seam, " + f.prev.year + " → " + f.year + "</b><br>" + HQ.esc(HQ.SERIES_LABEL[f.prev.sid]) + " hands over to " + HQ.esc(HQ.SERIES_LABEL[f.sid]) +
+        return "<b>Seam, " + HQ.yearLabel(f.prev.year) + " → " + HQ.yearLabel(f.year) + "</b><br>" + HQ.esc(HQ.SERIES_LABEL[f.prev.sid]) + " hands over to " + HQ.esc(HQ.SERIES_LABEL[f.sid]) +
           ".<br>The point jumps <b>" + HQ.fmt(km) + " km</b> here. Drawn as a seam, not smoothed over.";
       } });
     });
@@ -312,7 +312,7 @@
   }
   function nodeTip(f) {
     var t = HQ.trail[f.key], b = f.branch ? HQ.BRANCH[f.branch] : null;
-    return "<b>" + f.year + "</b>" + (b ? ' · <span style="color:' + b.color + '">' + b.code + " " + b.name + "</span>" : "") +
+    return "<b>" + HQ.yearLabel(f.year) + "</b>" + (b ? ' · <span style="color:' + b.color + '">' + b.code + " " + b.name + "</span>" : "") +
       '<br><span class="muted">' + HQ.esc(HQ.SERIES_LABEL[f.sid]) + "</span><br>" + f.conf + " · " + HQ.ll(t.x) +
       '<br><span class="muted">click to go there</span>';
   }
@@ -429,7 +429,7 @@
         pin(c, ph.x, ph.y, "#4b92db");
         hits.push({ x: ph.x, y: ph.y - 21, r: 12, html: function () {
           var T = HQ.nearestTown(Vw.hq);
-          return "<b>The fair HQ, " + st.year + "</b><br>p = " + st.p + (Vw.M !== "all" ? ", " + (Vw.M === "urban" ? "city folk" : "country folk") + " only" : "") +
+          return "<b>The fair HQ, " + HQ.yearLabel(st.year) + "</b><br>p = " + st.p + (Vw.M !== "all" ? ", " + (Vw.M === "urban" ? "city folk" : "country folk") + " only" : "") +
             "<br>" + HQ.ll(Vw.hq) + (T ? "<br>near " + HQ.esc(T.name) + ", " + HQ.esc(T.country) : "");
         } });
         labels.push([ph.x + 14, ph.y - 21, "fair HQ" + (st.p !== 1 ? " · p = " + st.p : ""), null, ph.x]);

@@ -38,16 +38,18 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
     by which office each person is closest to. No comparison with real UN offices.
   - **Depth of humanity.** The 3D centre of mass of all people lies inside the Earth; its
     depth below the surface measures how lopsided humanity is, epoch by epoch.
-- **Time span: 1850 to 2100 for now.** All series use a 0.5° grid every 5 years:
+- **Time span: 10,000 BC to 2100.** All series use a 0.5° grid, every 5 years from 1850:
+  - **10,000 BC–1840:** HYDE 3.3, at HYDE's own steps: every 1000 years to 0 AD, every 100
+    to 1700, every 10 to 1840. The timeline gives this era its left 30%.
   - **1850–1970:** ISIMIP3a histsoc, a HYDE-based reconstruction.
   - **1975–2030:** GHSL GHS-POP R2023A, the backbone. 2025 and 2030 are projections.
   - **2035–2100:** the trail **forks** into ISIMIP3b SSP1, SSP3 and SSP5. ISIMIP has no
     SSP2.
-  - **Seams:** the joins at 1975 and 2030 are drawn as seams, with their size in km, not
-    smoothed over.
-  - **Antiquity is later:** HYDE 3.3 (10,000 BC to 1850) is downloaded but not built yet.
-    Utrecht's own copy sits behind an Anubis bot wall, so `scripts/fetch_hyde.py` uses a
-    Kaggle mirror of it, with the DANS archive of HYDE 3.2.1 as a fallback.
+  - **Seams:** the joins at 1850, 1975 and 2030 are drawn as seams, with their size in km,
+    not smoothed over.
+  - **Where HYDE comes from:** Utrecht's own copy sits behind an Anubis bot wall, so
+    `scripts/fetch_hyde.py` uses a Kaggle mirror of it, with the DANS archive of HYDE 3.2.1
+    as a fallback.
 - **Data honesty: fade by confidence.** The trail is dotted for modelled years, solid for
   observed and dashed for projected, with the source named on hover.
 - **Silly landings: show the raw point and name the nearest town.** A "welcome to your new
@@ -66,8 +68,8 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
 
 - **Grid resolution.** 0.5° is assumed. The build checks it against finer GHSL aggregates.
 - **GHS-SMOD for urban/rural** in GHSL epochs, replacing the borrowed ISIMIP share.
-- **HYDE 3.3 for antiquity.** The grids are fetched. Its steps are irregular (1000, 100 and
-  then 10 years), and the timeline and dial assume 5-year frames.
+- **Urban/rural for antiquity.** HYDE has `urbc` grids too; the build only fetches `popc`,
+  so the weighting buttons are off before 1850.
 - **The country-vote point per state.** v1 uses each UN member state's capital, weighted
   equally. A refinement would use each country's own population median.
 - **Wikipedia blurbs** for the nearest-town card. The town names come from GeoNames
@@ -96,17 +98,21 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
 - The anti-HQ is dropped: the point farthest on average turns out to be exactly the
   antipode of the fair HQ.
 - The dial is capped at p=8.
+- HYDE's uneven steps are shipped as they are, not resampled to 5 years. The timeline is
+  piecewise linear (10,000 BC–0 AD, 0–1700, 1700–1850, 1850–2100 at 13/9/8/70% of its
+  width), and Play runs from 10,000 BC.
 
 ## Running it
 
-Double-click `web/index.html`. The generated `web/data/` (about 21 MB) is committed, so a
+Double-click `web/index.html`. The generated `web/data/` (about 28 MB) is committed, so a
 clone opens as-is. To rebuild it:
 
 ```sh
 python -m venv .venv && .venv/Scripts/pip install numpy rasterio xarray h5netcdf h5py
 sh scripts/fetch_ghsl.sh      # ~5.5 GB, GHS-POP 30 arcsec, 12 epochs
 sh scripts/fetch_isimip.sh    # ~220 MB, ISIMIP 30 arcmin history + SSP1/3/5
-.venv/Scripts/python scripts/fetch_hyde.py    # ~500 MB, HYDE 3.3 popc 10000 BC-1850 (not built yet)
+.venv/Scripts/python -m pip install inflate64   # only for fetch_hyde.py --release 3.2.1
+.venv/Scripts/python scripts/fetch_hyde.py    # ~500 MB, HYDE 3.3 popc 10000 BC-1850
 .venv/Scripts/python scripts/build_data.py    # ~5 min, writes web/data/*.js + checks.md
 .venv/Scripts/python scripts/build_towns.py   # GeoNames towns + UN member capitals
 ```
@@ -119,10 +125,19 @@ Without `web/data/`, the page falls back to a synthetic mock (`web/mock/`).
   - The data pipeline. Its checks are in `docs/checks.md`.
   - The globe page, with every feature listed under "Decided".
   - The JS solver. It matches the Python reference (`scripts/fair.py`) to under 1 m on all
-    79 frames.
+    121 frames.
 - **Findings:** the sanity check holds. The trail is smooth and 0.5° matches 0.1° to 0.2 km
   (see `docs/checks.md`).
   - The fair HQ sits in Punjab in 2020.
+  - In 10,000 BC it sits in Virginia, then west of Scotland (9000 BC) and in Denmark
+    (8000 BC). With 4.5 million people spread over every continent the objective is
+    nearly flat: those three spots are within 3% of each other in mean trip length. It
+    then marches east across the steppe and reaches North India by 2000 BC.
+  - From 0 AD to 1700 it stays around Delhi, wandering between Punjab and the Nepal border.
+    From 1700 it climbs north-east into Tibet, peaking at 34.8° N, 88.7° E in 1840, before
+    the modern drift back west to Punjab.
+  - The 1850 seam is clean: HYDE 3.3 and ISIMIP's 1850 put the HQ 6 km apart, with
+    totals within 0.2%.
   - It drifts west through Baluchistan by 2100 (SSP1/SSP5), or to near Abqaiq in Saudi
     Arabia (SSP3).
   - The worst-off (99.9%) point has two real basins, the Levant and the North Pole, and
@@ -130,5 +145,4 @@ Without `web/data/`, the page falls back to a synthetic mock (`web/mock/`).
 - **Known gaps:**
   - A dial tick above p=2 takes about 70–110 ms, against a 50 ms target. A Web Worker pool
     would fix that.
-  - HYDE antiquity is fetched but not built into the page yet.
   - GHS-SMOD for urban/rural is still pending.

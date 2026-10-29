@@ -13,7 +13,7 @@
   function u16(b64) { var b = bytes(b64); return new Uint16Array(b.buffer, b.byteOffset, b.byteLength >> 1); }
   function f32(b64) { var b = bytes(b64); return new Float32Array(b.buffer, b.byteOffset, b.byteLength >> 2); }
 
-  var SERIES = ["isimip-hist", "ghsl", "ssp1", "ssp3", "ssp5"];
+  var SERIES = ["hyde", "isimip-hist", "ghsl", "ssp1", "ssp3", "ssp5"];
   var BRANCHES = ["ssp1", "ssp3", "ssp5"];
 
   // Everything derived once at load: cell ids, their xyz, and the frame index.

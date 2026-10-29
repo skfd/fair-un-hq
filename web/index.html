@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>The fair UN: where it should be, and how it wanders (1850–2100)</title>
+<title>The fair UN: where it should be, and how it wanders (10,000 BC–2100)</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -19,7 +19,7 @@
       </svg>
       <div>
         <h1>Where should the <em>UN</em> be?</h1>
-        <p class="tag">Put it where it is <b>fair for everyone</b>, then watch it wander from 1850 to 2100. Everything is worked out live, in your browser.</p>
+        <p class="tag">Put it where it is <b>fair for everyone</b>, then watch it wander from 10,000 BC to 2100. Everything is worked out live, in your browser.</p>
       </div>
     </div>
     <span id="mockNote" class="mock-note" hidden>Demo data (synthetic): run the build for real people</span>
@@ -49,7 +49,7 @@
     <button class="play" id="play" aria-label="Play the drift">
       <svg id="playIcon" width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><path d="M6 3l13 8-13 8z" fill="#2b1b00"/></svg>
     </button>
-    <svg id="tl" tabindex="0" role="slider" aria-label="Year" aria-valuemin="1850" aria-valuemax="2100"></svg>
+    <svg id="tl" tabindex="0" role="slider" aria-label="Year" aria-valuemin="-10000" aria-valuemax="2100"></svg>
     <div class="branches" id="branches"><span class="lead">After 2030, the future forks. Follow:</span></div>
   </section>
     </div>
@@ -145,12 +145,13 @@
   <footer>
     <div><b>Data.</b>
       Population 1975–2030: <a href="https://ghsl.jrc.ec.europa.eu/">GHSL GHS-POP R2023A</a>, European Commission Joint Research Centre.
+      10,000 BC–1840: <a href="https://landuse.sites.uu.nl/hyde-project/">HYDE 3.3</a>, Kees Klein Goldewijk, Utrecht University / PBL (fetched from a <a href="https://www.kaggle.com/datasets/ilyenkov/hyde-3-3">Kaggle mirror</a>).
       1850–1970 and the 2035–2100 scenarios: <a href="https://www.isimip.org/">ISIMIP</a> (ISIMIP3a histsoc, a HYDE-based reconstruction; ISIMIP3b SSP1, SSP3, SSP5).
       Towns and capitals: <a href="https://www.geonames.org/">GeoNames</a>, CC BY 4.0.
       Coastlines: <a href="https://www.naturalearthdata.com/">Natural Earth</a> via <a href="https://github.com/topojson/world-atlas">world-atlas</a>.
       Drawn with <a href="https://d3js.org/">d3</a> and topojson-client.
     </div>
-    <div class="fine">The story starts in 1850 because that is where the gridded data starts. Antiquity is pending (HYDE 3.3 sits behind a browser-only wall). Distances are great-circle; the Earth is a ball of radius 6,371 km. 1850–1970 is modelled, 2025 onward is projected, and the joins between sources are drawn as seams rather than smoothed over.</div>
+    <div class="fine">The story starts in 10,000 BC because that is where HYDE starts. Before 1850 the steps are HYDE’s own (a thousand years, then a hundred, then ten) and the timeline squeezes them into its left end; there is no city/country split there. Distances are great-circle; the Earth is a ball of radius 6,371 km. Everything before 1975 is modelled, 2025 onward is projected, and the joins between sources are drawn as seams rather than smoothed over.</div>
   </footer>
 </div>
 
@@ -169,6 +170,7 @@
 <script src="vendor/topojson-client.min.js"></script>
 <script src="vendor/world-50m.js"></script>
 <script src="data/cells.js"></script>
+<script src="data/series-hyde.js"></script>
 <script src="data/series-isimip-hist.js"></script>
 <script src="data/series-ghsl.js"></script>
 <script src="data/series-ssp1.js"></script>

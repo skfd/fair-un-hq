@@ -1,9 +1,9 @@
-"""Build web/data/*.js from the raw ISIMIP and GHSL downloads, exactly per web/DATA.md.
+"""Build web/data/*.js from the raw HYDE, ISIMIP and GHSL downloads, exactly per web/DATA.md.
 
     .venv/Scripts/python scripts/build_data.py [--cache DIR] [--workers N]
 
-Outputs cells.js, series-{isimip-hist,ghsl,ssp1,ssp3,ssp5}.js, reference.js and checks.md (all under
-web/data/, gitignored). --cache keeps the GHSL block sums between runs (they take a few minutes).
+Outputs cells.js, series-{hyde,isimip-hist,ghsl,ssp1,ssp3,ssp5}.js, reference.js and checks.md (all
+under web/data/). --cache keeps the GHSL block sums between runs (they take a few minutes).
 """
 import argparse
 import base64
@@ -27,17 +27,25 @@ GHSL_TIF = "GHS_POP_E{y}_GLOBE_R2023A_4326_30ss_V1_0.tif"
 H1 = os.path.join(RAW, "isimip", "population_histsoc_30arcmin_annual_1850_1900.nc")
 H2 = os.path.join(RAW, "isimip", "population_histsoc_30arcmin_annual_1901_2021.nc")
 SSP = os.path.join(RAW, "isimip", "population_ssp{}_30arcmin_annual_2015_2100.nc")
+HYDE = os.path.join(RAW, "hyde", "3.3", "popc_{}.asc.gz")   # scripts/fetch_hyde.py
 
 NROW, NCOL = 360, 720
 LMAX = float(np.log1p(5e7))
 QMAX = 65535
 
+# HYDE's own steps before ISIMIP takes over: millennia, then centuries, then decades. Shipped as
+# they are rather than resampled to 5 years, so the timeline is uneven before 1850.
+HYDE_YEARS = list(range(-10000, 0, 1000)) + list(range(0, 1700, 100)) + list(range(1700, 1850, 10))
 HIST_YEARS = list(range(1850, 1971, 5))
 GHSL_YEARS = list(range(1975, 2031, 5))
 SSP_YEARS = list(range(2035, 2101, 5))
 SSPS = (1, 3, 5)
 
 META = {
+    "hyde": dict(label="HYDE 3.3 population",
+                 source="Klein Goldewijk / Utrecht University and PBL, History Database of the Global "
+                        "Environment (via a Kaggle mirror)",
+                 url="https://www.kaggle.com/datasets/ilyenkov/hyde-3-3"),
     "isimip-hist": dict(label="ISIMIP3a histsoc population (HYDE 3.2 based)",
                         source="ISIMIP, Inter-Sectoral Impact Model Intercomparison Project",
                         url="https://data.isimip.org/"),
@@ -156,6 +164,24 @@ def ghsl_job(year, cache):
     return year, g05, g01, info
 
 
+# ---------------------------------------------------------------- HYDE
+
+def hyde_job(year):
+    """One HYDE popc grid (5 arcmin, people per cell) summed into 0.5 deg blocks."""
+    import gzip
+    with gzip.open(HYDE.format(year), "rt") as f:
+        head = dict(next(f).split() for _ in range(6))
+        a = np.loadtxt(f, dtype=np.float64)
+    assert (int(head["ncols"]), int(head["nrows"])) == (4320, 2160), head
+    assert float(head["xllcorner"]) == -180 and float(head["yllcorner"]) == -90, head
+    assert a.shape == (2160, 4320), a.shape
+    nodata = float(head["NODATA_value"])
+    n_neg = int(((a < 0) & (a != nodata)).sum())
+    a[(a == nodata) | ~np.isfinite(a) | (a < 0)] = 0
+    # ASCII grids are written north row first, as the contract wants.
+    return year, a.reshape(NROW, 6, NCOL, 6).sum((1, 3)), n_neg
+
+
 # ---------------------------------------------------------------- ISIMIP
 
 class Isimip:
@@ -254,6 +280,7 @@ def main():
     gx = ProcessPoolExecutor(max_workers=min(args.workers, 6))
     ghsl_futs = [gx.submit(ghsl_job, y, args.cache) for y in GHSL_YEARS]
     with ProcessPoolExecutor(max_workers=args.workers) as ex:
+        hyde_futs = [ex.submit(hyde_job, y) for y in HYDE_YEARS + [1850]]
 
         isi = Isimip()
         say("ISIMIP orientation: " + ", ".join(f"{k} {v}" for k, v in isi.orient.items()))
@@ -276,6 +303,15 @@ def main():
                 isi_checks.append((series, year, tot.sum(), urb.sum() / tot.sum(), rel, tot.max()))
             return tot, urb
 
+        hyde_neg = 0
+        for f in hyde_futs:
+            y, tot, n_neg = f.result()
+            hyde_neg += n_neg
+            if y < 1850:
+                frames[f"hyde/{y}"] = dict(series="hyde", year=y, conf="modelled", total=tot, share=None)
+            else:
+                hyde_1850 = tot
+        say(f"HYDE read: {len(HYDE_YEARS)} frames, {hyde_neg} negative cells masked")
         for y in HIST_YEARS:
             tot, urb = isi_frame("hist", y)
             share, _ = share_with_fallback(urb, tot, tot) if urb is not None else (None, None)
@@ -289,7 +325,7 @@ def main():
                 frames[f"ssp{s}/{y}"] = dict(series=f"ssp{s}", year=y, conf="projected", total=tot, share=share)
 
         # seam-only frames (not shipped)
-        seam = {}
+        seam = {"hyde/1850": hyde_1850}
         seam["isimip-hist/1975"] = isi.get("hist", "total-population", 1975)
         seam["isimip-hist/2020"] = isi.get("hist", "total-population", 2020)
         for s in SSPS:
@@ -352,7 +388,7 @@ def main():
             align.append((dr, dc, float(g[isi20 <= 0].sum())))
 
         # ---- quantise, union
-        order = ([f"isimip-hist/{y}" for y in HIST_YEARS] + [f"ghsl/{y}" for y in GHSL_YEARS]
+        order = ([f"hyde/{y}" for y in HYDE_YEARS] + [f"isimip-hist/{y}" for y in HIST_YEARS] + [f"ghsl/{y}" for y in GHSL_YEARS]
                  + [f"ssp{s}/{y}" for s in SSPS for y in SSP_YEARS])
         union = np.zeros(NROW * NCOL, bool)
         qs = {}
@@ -404,7 +440,7 @@ def main():
         f.write(f"FAIR.LMAX = {LMAX!r};  // log1p(5e7)\n")
         f.write(f"FAIR.cells = \"{b64(ids, '<u4')}\";  // {len(ids)} cells\n")
 
-    for sid in ["isimip-hist", "ghsl"] + [f"ssp{s}" for s in SSPS]:
+    for sid in ["hyde", "isimip-hist", "ghsl"] + [f"ssp{s}" for s in SSPS]:
         ks = [k for k in order if frames[k]["series"] == sid]
         with open(os.path.join(OUT, f"series-{sid}.js"), "w", newline="\n") as f:
             f.write(hdr + boot)
@@ -448,45 +484,48 @@ def main():
       f"{len(ids)} cells in the union, {len(order)} shipped frames.\n")
 
     # 1. per-frame table
-    trails = {f"ssp{s}": [f"isimip-hist/{y}" for y in HIST_YEARS] + [f"ghsl/{y}" for y in GHSL_YEARS]
+    trails = {f"ssp{s}": [f"hyde/{y}" for y in HYDE_YEARS] + [f"isimip-hist/{y}" for y in HIST_YEARS] + [f"ghsl/{y}" for y in GHSL_YEARS]
               + [f"ssp{s}/{y}" for y in SSP_YEARS] for s in SSPS}
     step = {}
     for tr in trails.values():
         for a, b in zip(tr, tr[1:]):
-            step[b] = (a, km(res[a]["median"], res[b]["median"]))
-    med_step = {s: float(np.median([step[k][1] for k in tr[1:]])) for s, tr in trails.items()}
+            d = km(res[a]["median"], res[b]["median"])
+            step[b] = (a, d, d / (frames[b]["year"] - frames[a]["year"]))
+    med_step = {s: float(np.median([step[k][2] for k in tr[1:]])) for s, tr in trails.items()}
 
     def flagged(k):
         s = next(s for s, t in trails.items() if k in t)
         tr = trails[s]
         i = tr.index(k)
-        d = step[k][1]
-        nb = [step[tr[j]][1] for j in (i - 1, i + 1) if 0 < j < len(tr)]
+        d = step[k][2]
+        nb = [step[tr[j]][2] for j in (i - 1, i + 1) if 0 < j < len(tr)]
         f = []
-        if nb and d > 2 * max(nb) and d > 20:
+        if nb and d > 2 * max(nb) and d > 4:
             f.append("2x neighbours")
-        if d > 3 * med_step[s] and d > 20:
+        if d > 3 * med_step[s] and d > 4:
             f.append(f"3x {s} trail median")
         return ", ".join(f)
 
     P("## 1. Frames\n")
     P(f"`km moved` is the p=1 median's great-circle move since the previous frame of the same trail "
-      f"(isimip-hist -> ghsl -> each SSP). Flag rule: a step is flagged if it is more than 2x both its "
-      f"neighbouring steps, or more than 3x the median step of its trail "
-      f"({', '.join(f'{s} {v:.0f} km' for s, v in med_step.items())}), and over 20 km. "
+      f"(hyde -> isimip-hist -> ghsl -> each SSP). Steps are uneven (1000, 100, 10, then 5 years), so the "
+      f"flag rule works on speed: a step is flagged if its km/yr is more than 2x both its neighbouring "
+      f"steps', or more than 3x the median of its trail "
+      f"({', '.join(f'{s} {v:.1f} km/yr' for s, v in med_step.items())}), and over 4 km/yr. "
       f"Totals are of the quantised data as shipped; `raw` is before quantisation.\n")
     P("The worst-off (99.9%) point is not part of the jump rule: its objective has two basins, near the Levant "
       "and near the North Pole, and the answer flips between them (checked with more seeds and other RNG "
       "seeds: the flips are real, not search misses). Its column is shown so the flips are visible.\n")
-    P("| series | year | conf | total (M) | raw (M) | median lat | median lon | km moved | from | flag | worst999 | worst999 km |")
-    P("|---|---|---|---:|---:|---:|---:|---:|---|---|---|---:|")
+    P("| series | year | conf | total (M) | raw (M) | median lat | median lon | km moved | km/yr | from | flag | worst999 | worst999 km |")
+    P("|---|---|---|---:|---:|---:|---:|---:|---:|---|---|---|---:|")
     for k in order:
         fr = frames[k]
         o = res[k]
         st = step.get(k)
         P(f"| {fr['series']} | {fr['year']} | {fr['conf']} | {o['pop'] / 1e6:,.1f} | {raw_total[k] / 1e6:,.1f} | "
           f"{o['median'][0]:.3f} | {o['median'][1]:.3f} | "
-          f"{'' if st is None else f'{st[1]:.0f}'} | {'' if st is None else st[0]} | "
+          f"{'' if st is None else f'{st[1]:.0f}'} | {'' if st is None else f'{st[2]:.2f}'} | "
+          f"{'' if st is None else st[0]} | "
           f"{flagged(k) if st else ''} | {o['worst999'][0]:.1f}, {o['worst999'][1]:.1f} | {o['worst999_km']:.0f} |")
     P("")
     P("### The 1900/1901 file boundary, annually\n")
@@ -512,6 +551,8 @@ def main():
         P(f"| {name} | {a} | {b} | {km(ra['median'], rb['median']):.0f} | {ra['pop'] / 1e6:,.0f} | "
           f"{rb['pop'] / 1e6:,.0f} | {rb['pop'] / ra['pop']:.3f} |")
 
+    seam_row("1850", "hyde/1850", "isimip-hist/1850")
+    seam_row("1840 HYDE -> 1850 ISIMIP (as drawn)", "hyde/1840", "isimip-hist/1850")
     seam_row("1975", "isimip-hist/1975", "ghsl/1975")
     seam_row("1970->1975 inside ISIMIP", "isimip-hist/1970", "isimip-hist/1975")
     seam_row("1970 ISIMIP -> 1975 GHSL (as drawn)", "isimip-hist/1970", "ghsl/1975")
@@ -521,7 +562,7 @@ def main():
     for s in SSPS:
         seam_row(f"2030->2035 ssp{s} inside ISIMIP", f"ssp{s}/2030", f"ssp{s}/2035")
     P("")
-    P("(`isimip-hist/1975`, `isimip-hist/2020` and `sspN/2030` are computed for these checks only; they are "
+    P("(`hyde/1850`, `isimip-hist/1975`, `isimip-hist/2020` and `sspN/2030` are computed for these checks only; they are "
       "not shipped.)\n")
 
     # 3. resolution
@@ -540,7 +581,7 @@ def main():
     P("| file | bytes | MB |")
     P("|---|---:|---:|")
     tot_b = 0
-    for fn in ["cells.js", "series-isimip-hist.js", "series-ghsl.js"] + [f"series-ssp{s}.js" for s in SSPS] + ["reference.js"]:
+    for fn in ["cells.js", "series-hyde.js", "series-isimip-hist.js", "series-ghsl.js"] + [f"series-ssp{s}.js" for s in SSPS] + ["reference.js"]:
         n = os.path.getsize(os.path.join(OUT, fn))
         tot_b += n
         P(f"| {fn} | {n:,} | {n / 1e6:.2f} |")

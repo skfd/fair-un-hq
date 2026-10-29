@@ -18,7 +18,7 @@
 
   function scrub(ev) {
     var r = svg.node().getBoundingClientRect(), px = ev.clientX - r.left, py = ev.clientY - r.top;
-    var yr = Math.round(x.invert(px) / 5) * 5, br;
+    var yr = HQ.nearestYear(x.invert(px)), br;
     if (yr > HQ.FORK && px <= x(2100) + 8) {
       br = ["ssp1", "ssp3", "ssp5"].reduce(function (a, b) { return Math.abs(LANE[b] - py) < Math.abs(LANE[a] - py) ? b : a; });
     }
@@ -52,23 +52,30 @@
     if (!svg) return;
     var st = HQ.state, D = HQ.D, fork = HQ.FORK;
     W = svg.node().clientWidth || 1000;
-    x = d3.scaleLinear([1850, 2100], [ML, W - MR]);
-    svg.attr("viewBox", "0 0 " + W + " " + H);
-    svg.attr("aria-valuenow", st.year).attr("aria-valuetext", st.year + (st.year > fork ? ", " + HQ.BRANCH[st.branch].code + " " + HQ.BRANCH[st.branch].name : ""));
+    x = HQ.timeScale(ML, W - MR);
+    var y0 = HQ.years[0], deep = y0 < 1850;
+    svg.attr("viewBox", "0 0 " + W + " " + H).attr("aria-valuemin", y0);
+    svg.attr("aria-valuenow", st.year).attr("aria-valuetext", HQ.yearLabel(st.year) + (st.year > fork ? ", " + HQ.BRANCH[st.branch].code + " " + HQ.BRANCH[st.branch].name : ""));
     svg.selectAll("*").remove();
 
-    // eras
-    var eras = [[1850, 1972.5, "modelled (HYDE-based)"], [1972.5, 2022.5, "observed (GHSL)"], [2022.5, 2100, "projected"]];
+    // eras: antiquity has its own strip, on a squeezed scale (see HQ.timeScale)
+    var eras = (deep ? [[y0, 1847.5, "antiquity (HYDE 3.3)", "antiquity"]] : []).concat(
+      [[deep ? 1847.5 : 1850, 1972.5, "modelled (HYDE-based)", "modelled"], [1972.5, 2022.5, "observed (GHSL)", "observed"], [2022.5, 2100, "projected", "projected"]]);
     eras.forEach(function (e, i) {
-      svg.append("rect").attr("x", x(e[0])).attr("y", 4).attr("width", x(e[1]) - x(e[0])).attr("height", 80)
-        .attr("fill", i === 1 ? "rgba(255,255,255,.05)" : "rgba(255,255,255,.02)").attr("rx", i === 0 ? 8 : 0);
-      svg.append("text").attr("x", x(e[0]) + 6).attr("y", 112).attr("font-size", 11).attr("fill", "#8f8bb0").text(e[2]);
+      svg.append("rect").attr("x", x(e[0])).attr("y", 4).attr("width", Math.max(0, x(e[1]) - x(e[0]))).attr("height", 80)
+        .attr("fill", e[2].indexOf("observed") === 0 ? "rgba(255,255,255,.05)" : i === 0 && deep ? "rgba(255,255,255,.035)" : "rgba(255,255,255,.02)")
+        .attr("rx", i === 0 ? 8 : 0);
+      var t = svg.append("text").attr("x", x(e[0]) + 6).attr("y", 112).attr("font-size", 11).attr("fill", "#8f8bb0").text(e[2]);
+      if (t.node().getComputedTextLength() > x(e[1]) - x(e[0]) - 10) t.text(e[3]);   // narrow band: the short name
     });
-    // ticks
-    for (var y = 1850; y <= 2100; y += 25) {
+    // ticks: 25 years apart from 1850, a handful of landmarks before
+    var ticks = deep ? [-10000, 0, 1000] : [];
+    for (var y = 1850; y <= 2100; y += 25) ticks.push(y);
+    ticks.forEach(function (y) {
       svg.append("line").attr("x1", x(y)).attr("x2", x(y)).attr("y1", 84).attr("y2", 89).attr("stroke", "#6d6990");
-      svg.append("text").attr("x", x(y)).attr("y", 100).attr("text-anchor", "middle").attr("font-size", 11).attr("fill", "#b9b5d6").text(y);
-    }
+      svg.append("text").attr("x", x(y)).attr("y", 100).attr("text-anchor", y === y0 ? "start" : "middle").attr("font-size", 11).attr("fill", "#b9b5d6")
+        .text(HQ.yearLabel(y));
+    });
     // trunk segments by confidence
     D.trunk.forEach(function (f) {
       if (!f.prev) return;
@@ -99,7 +106,7 @@
       g.append("circle").attr("r", 5.5).attr("fill", "#0b1128").attr("stroke", "#fff").attr("stroke-width", 1.4);
       g.append("line").attr("x1", -2.6).attr("x2", 2.6).attr("stroke", "#fff").attr("stroke-width", 1.4);
       var km = a && b ? FairSolver.km(a.x, b.x) : null;
-      g.append("title").text("Seam " + f.prev.year + " → " + f.year + ": " + HQ.SERIES_LABEL[f.prev.sid] + " → " + HQ.SERIES_LABEL[f.sid] +
+      g.append("title").text("Seam " + HQ.yearLabel(f.prev.year) + " → " + HQ.yearLabel(f.year) + ": " + HQ.SERIES_LABEL[f.prev.sid] + " → " + HQ.SERIES_LABEL[f.sid] +
         (km != null ? ". The HQ jumps " + HQ.fmt(km) + " km across it." : "."));
       if (km != null) g.append("text").attr("y", -10).attr("text-anchor", "middle").attr("font-size", 10).attr("fill", "#c8c4e4").text(HQ.fmt(km) + " km");
     });

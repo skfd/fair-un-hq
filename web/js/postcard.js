@@ -10,8 +10,9 @@
   var DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
   function movingDay(year, seed) {
-    var d = new Date(Date.UTC(year, seed % 12, 1 + (seed >>> 4) % 28));
-    return DAYS[d.getUTCDay()] + " " + d.getUTCDate() + " " + MONTHS[d.getUTCMonth()] + " " + year;
+    var d = new Date(Date.UTC(2000, seed % 12, 1 + (seed >>> 4) % 28));
+    d.setUTCFullYear(year);   // Date.UTC reads years 0-99 as 1900-1999
+    return DAYS[d.getUTCDay()] + " " + d.getUTCDate() + " " + MONTHS[d.getUTCMonth()] + " " + HQ.yearLabel(year);
   }
   var JOKES = [
     "The movers say they'll arrive “between 9 and 5”. They mean years.",
@@ -66,7 +67,7 @@
     while (c.measureText(title).width > pw - 68) { var fs = parseInt(c.font.match(/(\d+)px/)[1], 10) - 4; c.font = "bold " + fs + "px " + SERIF; }
     c.fillText(title, px + 32, py + 130);
     c.fillStyle = "#c8c4e4"; c.font = "18px " + SANS;
-    c.fillText("the fair UN HQ, " + st.year + (F.branch ? " (" + HQ.BRANCH[F.branch].code + ": " + HQ.BRANCH[F.branch].name + ")" : ""), px + 34, py + 164);
+    c.fillText("the fair UN HQ, " + HQ.yearLabel(st.year) + (F.branch ? " (" + HQ.BRANCH[F.branch].code + ": " + HQ.BRANCH[F.branch].name + ")" : ""), px + 34, py + 164);
 
     // the divider
     c.strokeStyle = "#d9cdb2"; c.lineWidth = 1.5;
@@ -90,7 +91,7 @@
     HQ.Globe.pin(c, stx + sw / 2, sty + 80, "#ffd27a", 0.9, "#16406b");
     c.fillStyle = "#fff"; c.font = "bold 22px " + SERIF; c.textAlign = "center";
     c.fillText("p = " + st.p, stx + sw / 2, sty + 150);
-    c.font = "12px " + SANS; c.fillText("FAIR POST · " + st.year, stx + sw / 2, sty + 168);
+    c.font = "12px " + SANS; c.fillText("FAIR POST · " + HQ.yearLabel(st.year), stx + sw / 2, sty + 168);
     c.textAlign = "start";
 
     // postmark
@@ -99,8 +100,9 @@
     c.strokeStyle = "rgba(35,34,58,.55)"; c.lineWidth = 2;
     c.beginPath(); c.arc(0, 0, 58, 0, 2 * Math.PI); c.stroke();
     c.beginPath(); c.arc(0, 0, 42, 0, 2 * Math.PI); c.stroke();
-    c.fillStyle = "rgba(35,34,58,.6)"; c.font = "bold 20px " + SANS; c.textAlign = "center";
-    c.fillText(String(st.year), 0, 7);
+    var pm = HQ.yearLabel(st.year);
+    c.fillStyle = "rgba(35,34,58,.6)"; c.font = "bold " + (pm.length > 5 ? 14 : 20) + "px " + SANS; c.textAlign = "center";
+    c.fillText(pm, 0, 7);
     c.font = "bold 11px " + SANS;
     var ring = "WE'VE MOVED · WE'VE MOVED · ";
     for (k = 0; k < ring.length; k++) {
@@ -134,7 +136,8 @@
     // address lines
     c.strokeStyle = "#cfc2a4"; c.lineWidth = 1.2;
     var ay = Math.min(700, Math.max(660, my + 16));
-    ["To: everyone", "Planet Earth", "(all " + HQ.fmt(HQ.stats[F.key] ? HQ.stats[F.key].pop / 1e9 : V.P.W / 1e9, 1) + " billion of you)"].forEach(function (t, j) {
+    var nPeople = HQ.stats[F.key] ? HQ.stats[F.key].pop : V.P.W;
+    ["To: everyone", "Planet Earth", "(all " + (nPeople < 1e9 ? HQ.fmt(nPeople / 1e6) + " million" : HQ.fmt(nPeople / 1e9, 1) + " billion") + " of you)"].forEach(function (t, j) {
       c.beginPath(); c.moveTo(mx, ay + j * 34 + 8); c.lineTo(mx + mw, ay + j * 34 + 8); c.stroke();
       c.fillStyle = "#23223a"; c.font = "19px " + HAND; c.fillText(t, mx + 6, ay + j * 34);
     });

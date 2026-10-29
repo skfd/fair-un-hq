@@ -18,7 +18,7 @@
   };
   HQ.CONF_LABEL = { modelled: "modelled", observed: "observed", projected: "projected" };
   HQ.SERIES_LABEL = {
-    "isimip-hist": "ISIMIP3a histsoc (HYDE-based)", ghsl: "GHSL GHS-POP R2023A",
+    hyde: "HYDE 3.3", "isimip-hist": "ISIMIP3a histsoc (HYDE-based)", ghsl: "GHSL GHS-POP R2023A",
     ssp1: "ISIMIP3b SSP1", ssp3: "ISIMIP3b SSP3", ssp5: "ISIMIP3b SSP5",
   };
   if (FAIR.isMock) Object.keys(HQ.SERIES_LABEL).forEach(function (k) { HQ.SERIES_LABEL[k] += " (mock)"; });
@@ -28,6 +28,20 @@
   D.frames.forEach(function (f) { if (years.indexOf(f.year) < 0) years.push(f.year); });
   years.sort(function (a, b) { return a - b; });
   HQ.years = years;
+  HQ.nearestYear = function (y) {
+    return years.reduce(function (a, b) { return Math.abs(b - y) < Math.abs(a - y) ? b : a; });
+  };
+  // HYDE's own name for each step: 10,000 BC ... 0 AD, 100 AD ... 1000, 1850.
+  HQ.yearLabel = function (y) {
+    return y < 0 ? fmt(-y) + " BC" : y < 1000 ? y + " AD" : String(y);
+  };
+  // Time is uneven: millennia, then centuries, then decades before 1850, then 5-year frames. One
+  // piecewise-linear scale gives each era a strip roughly in proportion to its frames.
+  HQ.timeScale = function (r0, r1) {
+    var d = [-10000, 0, 1700, 1850, 2100], f = [0, 0.13, 0.22, 0.30, 1];
+    if (years[0] >= 1850) { d = [1850, 2100]; f = [0, 1]; }
+    return d3.scaleLinear(d, f.map(function (t) { return r0 + t * (r1 - r0); })).clamp(true);
+  };
   var trunkByYear = {};
   D.trunk.forEach(function (f) { trunkByYear[f.year] = f; });
 
@@ -337,7 +351,7 @@
     if (!V.F || !V.hq) return;
     var F = V.F, x = V.hq;
     // year badge
-    $("yearBig").textContent = F.year;
+    $("yearBig").textContent = HQ.yearLabel(F.year);
     $("yearSub").innerHTML = '<span class="conf">' + F.conf + "</span>" + HQ.SERIES_LABEL[F.sid];
     var b = F.branch ? HQ.BRANCH[F.branch] : null;
     $("yearBranch").innerHTML = b ? '<span class="swatch" style="background:' + b.color + '"></span>' + b.code + ": " + b.name : "";
@@ -431,7 +445,7 @@
     Array.prototype.forEach.call($("segMode").querySelectorAll("button"), function (bt) {
       if (bt.dataset.v !== "all") bt.disabled = !can;
     });
-    $("noteMode").innerHTML = !can && state.mode !== "all" ? "No city/country split for " + F.year + ", so everyone counts." :
+    $("noteMode").innerHTML = !can && state.mode !== "all" ? "No city/country split for " + HQ.yearLabel(F.year) + ", so everyone counts." :
       state.mode === "urban" ? "Only people in towns and cities. The trail stays everyone." :
       state.mode === "rural" ? "Only people in the countryside. The trail stays everyone." : "";
   }
@@ -443,14 +457,14 @@
     warn.innerHTML = "";
     if (!F.prev) {
       head.innerHTML = "This is where the story starts.";
-      body.textContent = "Ask again in " + (F.year + 5) + ". (Antiquity is still in the post.)";
+      body.textContent = "Ask again in " + HQ.yearLabel(years[1]) + ". Before " + HQ.yearLabel(F.year) + " there is no map of people to ask.";
       return;
     }
     if (!cur || !prev) { head.textContent = "Measuring…"; body.textContent = ""; return; }
     var km = S.km(prev.x, cur.x), dy = F.year - F.prev.year, kmyr = km / dy, mday = kmyr * 1000 / 365.25;
     head.innerHTML = "The HQ would have to crawl <span class=\"big\">" + fmt(mday, mday < 10 ? 1 : 0) + " metres a day</span>.";
     var snailMin = mday / 0.013 / 60;
-    body.innerHTML = F.prev.year + " → " + F.year + ": " + fmt(km) + " km " + bearing(prev.x, cur.x) + ", or " + fmt(kmyr, 1) +
+    body.innerHTML = HQ.yearLabel(F.prev.year) + " → " + HQ.yearLabel(F.year) + ": " + fmt(km) + " km " + bearing(prev.x, cur.x) + ", or " + fmt(kmyr, 1) +
       " km a year. A garden snail could cover a day's crawl in " + (snailMin < 90 ? fmt(snailMin) + " minutes" : fmt(snailMin / 60, 1) + " hours") + ", then nap.";
     if (F.seam) warn.innerHTML = '<div class="warn">Careful: this step crosses a data seam (' + esc(HQ.SERIES_LABEL[F.prev.sid]) + " → " +
       esc(HQ.SERIES_LABEL[F.sid]) + "). Part of the jump is the change of source, not people moving.</div>";
@@ -501,10 +515,10 @@
     series.forEach(function (s) { s.pts = s.fr.filter(function (f) { return stats[f.key]; }).map(function (f) { return [f.year, stats[f.key].depth, f]; }); all = all.concat(s.pts); });
     svg.selectAll("*").remove();
     if (all.length < 2) return;
-    var x = d3.scaleLinear([years[0], years[years.length - 1]], [2, w - 2]);
+    var x = HQ.timeScale(2, w - 2);
     var ext = d3.extent(all, function (d) { return d[1]; });
     var y = d3.scaleLinear(ext, [6, h - 12]);
-    svg.append("text").attr("x", 2).attr("y", h).attr("font-size", 10).attr("fill", "#8a8699").text(years[0]);
+    svg.append("text").attr("x", 2).attr("y", h).attr("font-size", 10).attr("fill", "#8a8699").text(HQ.yearLabel(years[0]));
     svg.append("text").attr("x", w - 2).attr("y", h).attr("text-anchor", "end").attr("font-size", 10).attr("fill", "#8a8699").text(years[years.length - 1]);
     svg.append("text").attr("x", 2).attr("y", 4).attr("font-size", 10).attr("fill", "#8a8699").text(fmt(ext[0]) + " km");
     svg.append("text").attr("x", 2).attr("y", h - 14).attr("font-size", 10).attr("fill", "#8a8699").attr("dy", -2).text(fmt(ext[1]) + " km");
@@ -521,11 +535,11 @@
     }
     svg.append("rect").attr("width", w).attr("height", h).attr("fill", "transparent")
       .on("mousemove", function (ev) {
-        var yr = Math.round(x.invert(d3.pointer(ev)[0]) / 5) * 5, f = HQ.frameAt(yr, state.branch);
-        $("sparkRead").textContent = f && stats[f.key] ? yr + ": " + fmt(stats[f.key].depth) + " km down" : "";
+        var yr = HQ.nearestYear(x.invert(d3.pointer(ev)[0])), f = HQ.frameAt(yr, state.branch);
+        $("sparkRead").textContent = f && stats[f.key] ? HQ.yearLabel(yr) + ": " + fmt(stats[f.key].depth) + " km down" : "";
       })
       .on("mouseleave", function () { $("sparkRead").textContent = ""; })
-      .on("click", function (ev) { var yr = Math.round(x.invert(d3.pointer(ev)[0]) / 5) * 5; HQ.setYear(yr, state.branch); });
+      .on("click", function (ev) { HQ.setYear(x.invert(d3.pointer(ev)[0]), state.branch); });
   }
 
   function legend() {
@@ -546,7 +560,7 @@
   // ---------------------------------------------------------------- controls
   HQ.setYear = function (year, branch) {
     year = Math.max(years[0], Math.min(years[years.length - 1], year));
-    if (years.indexOf(year) < 0) year = years.reduce(function (a, b) { return Math.abs(b - year) < Math.abs(a - year) ? b : a; });
+    if (years.indexOf(year) < 0) year = HQ.nearestYear(year);
     var changed = year !== state.year || (branch && branch !== state.branch);
     state.year = year;
     if (branch) state.branch = branch;
@@ -614,7 +628,7 @@
     $("postcardImg").src = url;
     $("postcardDl").href = url;
     var T = HQ.nearestTown(V.hq);
-    $("postcardDl").download = "fair-hq-" + state.year + (T ? "-" + T.name.replace(/[^\w]+/g, "-").toLowerCase() : "") + ".png";
+    $("postcardDl").download = "fair-hq-" + HQ.yearLabel(state.year).replace(/[^\w]+/g, "") + (T ? "-" + T.name.replace(/[^\w]+/g, "-").toLowerCase() : "") + ".png";
     $("postcardModal").hidden = false;
   });
   $("postcardClose").addEventListener("click", function () { $("postcardModal").hidden = true; });
