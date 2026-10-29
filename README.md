@@ -56,8 +56,9 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
   capital" card gives the nearest settlement and a short blurb. A point at sea gets a
   floating HQ barge.
 - **Extra toys:**
-  - **Weight by…** Urban only or rural only. ISIMIP carries an urban/rural split. For GHSL
-    epochs v1 borrows ISIMIP's per-cell urban share. GHS-SMOD would be the honest source,
+  - **Weight by…** Urban only or rural only. HYDE and ISIMIP carry an urban/rural split
+    (HYDE has no town dwellers in 10,000 BC, so that one frame has none). For GHSL epochs v1
+    borrows ISIMIP's per-cell urban share. GHS-SMOD would be the honest source,
     but it ships only at 1 km Mollweide.
   - **Drift speed.** Headline numbers per epoch, like "the HQ would have to crawl N metres
     a day".
@@ -68,8 +69,6 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
 
 - **Grid resolution.** 0.5° is assumed. The build checks it against finer GHSL aggregates.
 - **GHS-SMOD for urban/rural** in GHSL epochs, replacing the borrowed ISIMIP share.
-- **Urban/rural for antiquity.** HYDE has `urbc` grids too; the build only fetches `popc`,
-  so the weighting buttons are off before 1850.
 - **The country-vote point per state.** v1 uses each UN member state's capital, weighted
   equally. A refinement would use each country's own population median.
 - **Wikipedia blurbs** for the nearest-town card. The town names come from GeoNames
@@ -112,7 +111,7 @@ python -m venv .venv && .venv/Scripts/pip install numpy rasterio xarray h5netcdf
 sh scripts/fetch_ghsl.sh      # ~5.5 GB, GHS-POP 30 arcsec, 12 epochs
 sh scripts/fetch_isimip.sh    # ~220 MB, ISIMIP 30 arcmin history + SSP1/3/5
 .venv/Scripts/python -m pip install inflate64   # only for fetch_hyde.py --release 3.2.1
-.venv/Scripts/python scripts/fetch_hyde.py    # ~500 MB, HYDE 3.3 popc 10000 BC-1850
+.venv/Scripts/python scripts/fetch_hyde.py    # ~900 MB, HYDE 3.3 total + urban 10000 BC-1850
 .venv/Scripts/python scripts/build_data.py    # ~5 min, writes web/data/*.js + checks.md
 .venv/Scripts/python scripts/build_towns.py   # GeoNames towns + UN member capitals
 ```
@@ -133,6 +132,9 @@ Without `web/data/`, the page falls back to a synthetic mock (`web/mock/`).
     (8000 BC). With 4.5 million people spread over every continent the objective is
     nearly flat: those three spots are within 3% of each other in mean trip length. It
     then marches east across the steppe and reaches North India by 2000 BC.
+  - How flat: in 9000 BC west of Scotland and New Brunswick are within 0.5 km of each other
+    in mean trip length (7,676 km). Leaving out HYDE's 1,224 town dwellers ("Country folk")
+    tips the HQ across the Atlantic.
   - From 0 AD to 1700 it stays around Delhi, wandering between Punjab and the Nepal border.
     From 1700 it climbs north-east into Tibet, peaking at 34.8° N, 88.7° E in 1840, before
     the modern drift back west to Punjab.

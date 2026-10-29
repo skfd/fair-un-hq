@@ -44,7 +44,8 @@ FAIR.addSeries({
 - **The series and their years:**
   - `hyde`: HYDE 3.3, `modelled`, at HYDE's own steps: 10,000 BC to 0 every 1000 years, 0 to
     1700 every 100, 1700 to 1840 every 10 (42 frames; BC years are negative, 0 is HYDE's
-    "0 AD"). `urban` is `null`: the build fetches only HYDE's total population.
+    "0 AD"). `urban` is HYDE's own `urbc / popc`, except in 10,000 BC, where HYDE has no town
+    dwellers at all and `urban` is `null`.
   - `isimip-hist`: 1850–1970 every 5 years, `modelled` (a HYDE-based reconstruction).
   - `ghsl`: 1975–2020 `observed`, 2025 and 2030 `projected`. This is the backbone.
   - `ssp1`, `ssp3`, `ssp5`: 2035–2100 every 5 years, `projected`. The trail forks after

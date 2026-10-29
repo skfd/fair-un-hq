@@ -27,7 +27,7 @@ GHSL_TIF = "GHS_POP_E{y}_GLOBE_R2023A_4326_30ss_V1_0.tif"
 H1 = os.path.join(RAW, "isimip", "population_histsoc_30arcmin_annual_1850_1900.nc")
 H2 = os.path.join(RAW, "isimip", "population_histsoc_30arcmin_annual_1901_2021.nc")
 SSP = os.path.join(RAW, "isimip", "population_ssp{}_30arcmin_annual_2015_2100.nc")
-HYDE = os.path.join(RAW, "hyde", "3.3", "popc_{}.asc.gz")   # scripts/fetch_hyde.py
+HYDE = os.path.join(RAW, "hyde", "3.3", "{}_{}.asc.gz")   # popc / urbc, from scripts/fetch_hyde.py
 
 NROW, NCOL = 360, 720
 LMAX = float(np.log1p(5e7))
@@ -166,10 +166,11 @@ def ghsl_job(year, cache):
 
 # ---------------------------------------------------------------- HYDE
 
-def hyde_job(year):
-    """One HYDE popc grid (5 arcmin, people per cell) summed into 0.5 deg blocks."""
+def hyde_grid(var, year):
+    """One HYDE grid (5 arcmin, people per cell) summed into 0.5 deg blocks; also the count of
+    negative cells it masked."""
     import gzip
-    with gzip.open(HYDE.format(year), "rt") as f:
+    with gzip.open(HYDE.format(var, year), "rt") as f:
         head = dict(next(f).split() for _ in range(6))
         a = np.loadtxt(f, dtype=np.float64)
     assert (int(head["ncols"]), int(head["nrows"])) == (4320, 2160), head
@@ -179,7 +180,13 @@ def hyde_job(year):
     n_neg = int(((a < 0) & (a != nodata)).sum())
     a[(a == nodata) | ~np.isfinite(a) | (a < 0)] = 0
     # ASCII grids are written north row first, as the contract wants.
-    return year, a.reshape(NROW, 6, NCOL, 6).sum((1, 3)), n_neg
+    return a.reshape(NROW, 6, NCOL, 6).sum((1, 3)), n_neg
+
+
+def hyde_job(year):
+    tot, n1 = hyde_grid("popc", year)
+    urb, n2 = hyde_grid("urbc", year)
+    return year, tot, urb, n1 + n2
 
 
 # ---------------------------------------------------------------- ISIMIP
@@ -304,11 +311,15 @@ def main():
             return tot, urb
 
         hyde_neg = 0
+        hyde_urban = {}
         for f in hyde_futs:
-            y, tot, n_neg = f.result()
+            y, tot, urb, n_neg = f.result()
             hyde_neg += n_neg
             if y < 1850:
-                frames[f"hyde/{y}"] = dict(series="hyde", year=y, conf="modelled", total=tot, share=None)
+                # 10,000 BC has no town dwellers at all: no split rather than an empty city-folk map.
+                share = share_with_fallback(urb, tot, tot)[0] if urb.sum() > 0 else None
+                hyde_urban[y] = (float(urb.sum()), float((urb > tot * (1 + 1e-9) + 1e-6).sum()))
+                frames[f"hyde/{y}"] = dict(series="hyde", year=y, conf="modelled", total=tot, share=share)
             else:
                 hyde_1850 = tot
         say(f"HYDE read: {len(HYDE_YEARS)} frames, {hyde_neg} negative cells masked")
@@ -631,6 +642,20 @@ def main():
         P(f"\n- SSP disagreement on urban share at {y}: people-weighted mean (max - min) across SSP1/3/5 "
           f"{sp['wmean']:.3f}, 99th percentile cell {sp['p99']:.3f}; global urban share "
           f"{', '.join(f'ssp{s} {g:.3f}' for s, g in zip(SSPS, sp['glob']))}.")
+    P("- HYDE urban share: `urbc / popc` per 0.5 deg cell, no neighbour borrowing needed (both grids come "
+      "from the same model). 10,000 BC has no town dwellers at all, so it ships `urban: null`. The one-byte "
+      "share drops cells whose urban share is under 1/510; `shipped` is the city-folk total the page "
+      "actually weighs:")
+    P("\n| year | HYDE urban (M) | shipped (M) | shipped / HYDE | cells with urban > total |")
+    P("|---|---:|---:|---:|---:|")
+    for y in HYDE_YEARS:
+        k = f"hyde/{y}"
+        raw_u, over = hyde_urban[y]
+        sh = frames[k]["share"]
+        shipped = 0.0 if sh is None else float((deq[k] * np.rint(sh.ravel()[ids] * 255) / 255).sum())
+        P(f"| {y} | {raw_u / 1e6:.4f} | {shipped / 1e6:.4f} | "
+          f"{'' if raw_u == 0 else f'{shipped / raw_u:.3f}'} | {over:.0f} |")
+    P("")
     for n in sorted(set(notes)):
         P(f"- {n}")
     P("")

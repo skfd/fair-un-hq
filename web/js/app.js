@@ -445,7 +445,9 @@
     Array.prototype.forEach.call($("segMode").querySelectorAll("button"), function (bt) {
       if (bt.dataset.v !== "all") bt.disabled = !can;
     });
-    $("noteMode").innerHTML = !can && state.mode !== "all" ? "No city/country split for " + HQ.yearLabel(F.year) + ", so everyone counts." :
+    $("noteMode").innerHTML = !can && state.mode !== "all" ? (F.sid === "hyde"
+        ? "Nobody lived in towns yet in " + HQ.yearLabel(F.year) + ", so everyone counts."
+        : "No city/country split for " + HQ.yearLabel(F.year) + ", so everyone counts.") :
       state.mode === "urban" ? "Only people in towns and cities. The trail stays everyone." :
       state.mode === "rural" ? "Only people in the countryside. The trail stays everyone." : "";
   }

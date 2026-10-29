@@ -1,7 +1,8 @@
-"""Fetch HYDE total-population grids (popc, 5 arcmin) for 10000 BC to 1850 AD.
+"""Fetch HYDE total and urban population grids (popc, urbc; 5 arcmin) for 10000 BC to 1850 AD.
 
     .venv/Scripts/python scripts/fetch_hyde.py                    # HYDE 3.3, up to 1850
     .venv/Scripts/python scripts/fetch_hyde.py --upto 2023
+    .venv/Scripts/python scripts/fetch_hyde.py --vars popc        # total population only
     .venv/Scripts/python scripts/fetch_hyde.py --release 3.2.1    # the DANS fallback
 
 Utrecht's own copy (public.yoda.uu.nl, geo.public.data.uu.nl) sits behind an Anubis bot
@@ -13,13 +14,13 @@ wall, so both releases come from mirrors:
   endpoint needs no Kaggle account.
 - 3.2.1: the DANS Data Station Archaeology deposit, doi:10.17026/DANS-25G-GEZ3, file
   HYDE3_2_1-baseline.zip (5.3 GB). DANS serves it with HTTP range support, so this pulls only
-  the popc grids out of the zip. The zip uses Deflate64, which the stdlib zipfile can list but
+  the wanted grids out of the zip. The zip uses Deflate64, which the stdlib zipfile can list but
   not inflate; the `inflate64` package does the inflating.
 
 ISIMIP3a histsoc, which the build uses from 1850, cites HYDE 3.2. Its 1850 total is 1290 M,
 against 1287 M for HYDE 3.3 and 1271 M for 3.2.1.
 
-Each grid is written gzipped as data/raw/hyde/<release>/popc_<year>.asc.gz (year negative for
+Each grid is written gzipped as data/raw/hyde/<release>/<var>_<year>.asc.gz (year negative for
 BC). rasterio reads these via /vsigzip/, and numpy.loadtxt reads them directly.
 """
 import argparse
@@ -38,7 +39,7 @@ from pathlib import Path
 KAGGLE = "https://www.kaggle.com/api/v1/datasets/download/ilyenkov/hyde-3-3/"
 DANS = "https://archaeology.datastations.nl/api/access/datafile/5490328"
 RAW = Path(__file__).resolve().parent.parent / "data" / "raw" / "hyde"
-POPC = re.compile(r"baseline/asc/\d+(AD|BC)_pop/popc_(\d+)(AD|BC)\.asc$")
+GRID = re.compile(r"baseline/asc/\d+(AD|BC)_pop/([a-z]+)_(\d+)(AD|BC)\.asc$")
 
 
 def hyde_years():
@@ -71,12 +72,12 @@ def save(out, data):
     print(f"got {out.name}  ({len(data) / 1e6:.0f} MB raw)")
 
 
-def fetch_kaggle(years, dest):
-    for year in years:
-        out = dest / f"popc_{year}.asc.gz"
+def fetch_kaggle(wanted, dest):
+    for var, year in wanted:
+        out = dest / f"{var}_{year}.asc.gz"
         if out.exists():
             continue
-        path = f"hyde/base/{tag(year)}_pop/popc_{tag(year)}.asc"
+        path = f"hyde/base/{tag(year)}_pop/{var}_{tag(year)}.asc"
         data = get(KAGGLE + urllib.parse.quote(path, safe=""))
         if not data.startswith(b"ncols"):
             raise ValueError(f"{path}: not an ASCII grid")
@@ -135,37 +136,39 @@ def extract(url, zi):
     return data
 
 
-def fetch_dans(years, dest):
+def fetch_dans(wanted, dest):
     url, size = resolve_dans()
     with zipfile.ZipFile(io.BufferedReader(Ranged(url, size), 1 << 20)) as z:
         members = {}
         for zi in z.infolist():
-            m = POPC.search(zi.filename)
+            m = GRID.search(zi.filename)
             if m:
-                members[int(m.group(2)) * (-1 if m.group(3) == "BC" else 1)] = zi
+                members[m.group(2), int(m.group(3)) * (-1 if m.group(4) == "BC" else 1)] = zi
     resolved_at = time.time()
-    for year in years:
-        out = dest / f"popc_{year}.asc.gz"
-        if out.exists() or year not in members:
+    for key in wanted:
+        out = dest / f"{key[0]}_{key[1]}.asc.gz"
+        if out.exists() or key not in members:
             continue
         if time.time() - resolved_at > 45 * 60:
             url, _ = resolve_dans()
             resolved_at = time.time()
-        save(out, extract(url, members[year]))
+        save(out, extract(url, members[key]))
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--release", choices=["3.3", "3.2.1"], default="3.3")
     ap.add_argument("--upto", type=int, default=1850, help="last year to fetch (default 1850)")
+    ap.add_argument("--vars", default="popc,urbc", help="HYDE grids to fetch (default popc,urbc)")
     args = ap.parse_args()
     dest = RAW / args.release
     dest.mkdir(parents=True, exist_ok=True)
     years = [y for y in hyde_years() if y <= args.upto]
     if args.release == "3.2.1":
         years = [y for y in years if y <= 2017]
-    print(f"HYDE {args.release}: {len(years)} popc grids up to {args.upto}")
-    (fetch_kaggle if args.release == "3.3" else fetch_dans)(years, dest)
+    wanted = [(v, y) for v in args.vars.split(",") for y in years]
+    print(f"HYDE {args.release}: {args.vars} for {len(years)} steps up to {args.upto}")
+    (fetch_kaggle if args.release == "3.3" else fetch_dans)(wanted, dest)
 
 
 if __name__ == "__main__":
