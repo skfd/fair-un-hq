@@ -17,8 +17,8 @@ This is a playful map, not a policy paper.
 
 Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
 
-- **Artifact: a static web page with a globe, run locally for now** (open `index.html`; no
-  hosting decided). Python preprocesses population into small binary grids per epoch; plain
+- **Artifact: a static web page with a globe**, live at https://skfd.github.io/fair-un-hq/
+  (GitHub Pages publishes `web/` on every push to main) and also openable locally. Python preprocesses population into small binary grids per epoch; plain
   JS plus a globe library does the maths live, so every toy below is interactive rather than
   precomputed. A 0.5° grid is roughly 60k populated cells per epoch, and Weiszfeld's
   algorithm on that runs in milliseconds.
