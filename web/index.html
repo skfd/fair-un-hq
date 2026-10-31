@@ -44,6 +44,15 @@
       </div>
       <div id="busy" class="busy" hidden><span class="spinner"></span><span id="busyText">Thinking…</span></div>
       <div id="tip" class="tip" hidden></div>
+      <div class="story" id="story" hidden role="dialog" aria-label="How the fair HQ is found">
+        <button class="story-x" id="storyClose" aria-label="Close">&times;</button>
+        <p id="storyText"></p>
+        <div class="story-nav">
+          <button class="btn ghost" id="storyBack">Back</button>
+          <span id="storyCount"></span>
+          <button class="btn" id="storyNext">Next</button>
+        </div>
+      </div>
     </section>
     <section class="timeline" aria-label="Timeline">
     <button class="play" id="play" aria-label="Play the drift">
@@ -122,16 +131,20 @@
         <div id="driftWarn"></div>
       </article>
 
-      <article class="card">
-        <h2>Depth of humanity</h2>
-        <div class="depth">
-          <svg id="cutaway" width="96" height="96" viewBox="-48 -48 96 96" aria-hidden="true"></svg>
-          <div>
-            <p class="stat-head" id="depthHead"></p>
-            <p id="depthBody"></p>
-          </div>
+      <article class="card why">
+        <h2>Why here? <span class="hand">a tug of war</span></h2>
+        <p class="why-lead" id="whyLead"></p>
+        <svg id="whyPoly" viewBox="0 0 320 196" role="img" aria-label="Each region's pull, chained tip to tail. At the fair HQ the chain closes into a loop."></svg>
+        <div class="pulls" id="whyRows"></div>
+        <p class="why-foot" id="whyFoot"></p>
+        <div class="layers" role="group" aria-label="Show on the globe">
+          <span>Show</span>
+          <label><input type="checkbox" id="lay-blocks"> blocks</label>
+          <label><input type="checkbox" id="lay-ropes"> ropes</label>
+          <label><input type="checkbox" id="lay-bowl"> bowl</label>
         </div>
-        <div class="spark"><span class="readout" id="sparkRead"></span><svg id="spark" aria-label="Depth of humanity's centre of mass by year"></svg></div>
+        <button class="btn ghost-ink" id="whyStory">Show me, step by step</button>
+        <p class="why-hint">Or grab the blue pin on the globe and drag it anywhere.</p>
       </article>
 
       <div class="actions">
@@ -180,9 +193,11 @@
 <script src="data/reference.js"></script>
 <script src="data/towns.js"></script>
 <script src="data/capitals.js"></script>
+<script src="data/regions.js"></script>
 <script src="js/fallback.js"></script>
 <script src="js/solver.js"></script>
 <script src="js/data.js"></script>
+<script src="js/blocks.js"></script>
 <script src="js/globe.js"></script>
 <script src="js/timeline.js"></script>
 <script src="js/postcard.js"></script>

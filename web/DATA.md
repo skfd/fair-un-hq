@@ -73,6 +73,19 @@ FAIR.countries = { "IN": "India", ... };
 FAIR.capitals = [ { cc: "IN", country: "India", city: "New Delhi", lat, lon }, ... ];  // 193 UN member states
 ```
 
+## `data/regions.js` (from `scripts/build_regions.js`)
+
+```js
+FAIR.regions = {
+  continents: ["Africa", "Asia", "Europe", "Latin America", "North America", "Oceania"],
+  subregions: [ { name: "Northern Africa", continent: 0 }, ... ],   // UN M49, 22 of them
+  cell: "<b64 Uint8>",   // subregion index per cell of cells.js, same order
+};
+```
+
+Rebuild it whenever `cells.js` changes. Without it (or if its length does not match), the
+page guesses a continent per cell from lat/lon.
+
 ## Maths (ported 1:1 from `scripts/fair.py`)
 
 - **Fairness dial:** p from 1 to 8. Minimise Σ w·θᵖ. For p ≤ 2 use IRLS/Weiszfeld; for
@@ -81,5 +94,9 @@ FAIR.capitals = [ { cc: "IN", country: "India", city: "New Delhi", lat, lon }, .
   - Warm-start every slider tick from the previous answer.
 - **Worst-off:** clipped minimax. Minimise the distance that covers a share q of people
   (q = 0.99 / 0.999). This is not the p → ∞ limit of the dial.
-- **Centre of mass:** the 3D mean. `depth_km = (1 − |c|) · 6371`.
+- **Centre of mass:** the 3D mean. `depth_km = (1 − |c|) · 6371`. The page no longer shows
+  it; it is only the solver's starting guess.
+- **Pulls** (`js/blocks.js`): at a point a, person i pulls along the great circle with
+  strength wᵢ·θᵢᵖ⁻¹. Their sum is the descent direction of Σ w·θᵖ, so it is zero at the fair HQ.
+  Sums per region are exact over every cell.
 - p=2 is "squared distance", not the centroid. They differ by about 8° in 2020.

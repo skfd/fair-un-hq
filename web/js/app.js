@@ -99,7 +99,7 @@
   // ---------------------------------------------------------------- trail (p = 1, everyone)
   // A warm-start chain frame to frame, seeded from the Python reference medians when present.
   var trail = HQ.trail = {};       // key -> { x, src }
-  var stats = HQ.stats = {};       // key -> { depth, pop }
+  var stats = HQ.stats = {};       // key -> { pop }
   var ref = FAIR.reference || null;
   // The Python medians are a provisional trail from the first frame; the chain below re-solves
   // every frame in the browser and replaces them (they agree to well under a metre).
@@ -111,8 +111,8 @@
       var fr = order[i];
       if (trail[fr.key] && stats[fr.key]) continue;
       var P = FD.population(D, fr, "all");
-      var c = S.centroid(P);
-      stats[fr.key] = { depth: (1 - Math.hypot(c[0], c[1], c[2])) * 6371, pop: P.W, centroid: c };
+      var c = S.centroid(P);   // only a starting guess for the solver
+      stats[fr.key] = { pop: P.W };
       yield;
       if (!trail[fr.key] || trail[fr.key].src === "ref") {
         var r = ref && ref[fr.key] ? S.toXYZ(ref[fr.key].median[0], ref[fr.key].median[1])
@@ -123,10 +123,10 @@
         if (!trail[fr.key] || trail[fr.key].src === "ref") trail[fr.key] = { x: res.x, src: "chain" };
       }
       HQ.Globe.invalidate();
-      if (i % 4 === 0) { HQ.Timeline.update(); drawSpark(); }
+      if (i % 4 === 0) HQ.Timeline.update();
     }
   }
-  function chainDone() { HQ.Timeline.update(); drawSpark(); refreshCards(); HQ.Globe.invalidate(); HQ.chainReady = true; }
+  function chainDone() { HQ.Timeline.update(); refreshCards(); HQ.Globe.invalidate(); HQ.chainReady = true; }
 
   // ---------------------------------------------------------------- the current view
   var V = HQ.view = { F: null, M: "all", P: null, hq: null, worst: null, vote: null, offices: null, labels: null };
@@ -158,6 +158,7 @@
     if (!F) return;
     var M = state.mode !== "all" && !F.hasUrban ? "all" : state.mode;
     var frameChanged = !V.F || V.F.key !== F.key || V.M !== M;
+    if (!EX.story && (frameChanged || EX.probeP !== state.p)) clearProbe();
     V.F = F; V.M = M;
     V.P = pop(F, M);
     var k = fmKey();
@@ -255,6 +256,7 @@
   // Two stages: a quick solve to DIAL_TOL (64 m: far below a pixel) while the dial moves, then,
   // once it has rested for a moment, a polish to POLISH_TOL from the same x and step size.
   HQ.tick = function () {   // called by the globe's animation loop
+    settleTick();
     if (dial.done) return;
     if (dial.stage === "polish" && now() < dial.polishAt) return;
     var t0 = now(), budget = 28, it = dial.p > 2 ? 2 : 4, tol = dial.stage === "polish" ? POLISH_TOL : DIAL_TOL;
@@ -360,7 +362,7 @@
     caption();
     notes();
     drift();
-    depth();
+    why();
     legend();
   }
   HQ.refreshCards = refreshCards;
@@ -472,92 +474,307 @@
       esc(HQ.SERIES_LABEL[F.sid]) + "). Part of the jump is the change of source, not people moving.</div>";
   }
 
-  var LAYERS = [[35, "crust"], [660, "upper mantle"], [2890, "lower mantle"], [5150, "outer core"], [6371, "inner core"]];
-  function layerOf(d) { for (var i = 0; i < LAYERS.length; i++) if (d < LAYERS[i][0]) return LAYERS[i][1]; return "inner core"; }
-  HQ.layerOf = layerOf;
-  function depth() {
-    var c = S.centroid(V.P), dep = (1 - Math.hypot(c[0], c[1], c[2])) * 6371;
-    V.depth = dep;
-    var who = V.M === "urban" ? "city folk's" : V.M === "rural" ? "country folk's" : "humanity's";
-    $("depthHead").innerHTML = fmt(dep) + " km down";
-    $("depthBody").innerHTML = "The 3D centre of mass of " + who + " bodies sits in the <b>" + layerOf(dep) + "</b>. " +
-      "Spread evenly, it would be at the very centre; all in one spot, at the surface.";
-    cutaway(dep);
-    if (sparkKey !== V.F.key + V.M + state.branch) drawSpark();
-  }
-  var sparkKey = null;
-  function cutaway(dep) {
-    var r = 44, rr = function (d) { return r * (1 - d / 6371); };
-    var s = '<defs><clipPath id="cutc"><path d="M0 0L' + r + ' 0A' + r + ' ' + r + ' 0 1 1 0 -' + r + 'Z"/></clipPath></defs>' +
-      '<circle r="' + r + '" fill="#2a5d8f"/>' +
-      '<path d="M0 0L' + r + ' 0A' + r + ' ' + r + ' 0 0 0 0 -' + r + 'Z" fill="#efe3c6"/>' +
-      '<circle r="' + rr(35) + '" fill="none"/>' +
-      '<path d="M0 0L' + rr(35) + ' 0A' + rr(35) + ' ' + rr(35) + ' 0 0 0 0 -' + rr(35) + 'Z" fill="#e8a25c"/>' +
-      '<path d="M0 0L' + rr(660) + ' 0A' + rr(660) + ' ' + rr(660) + ' 0 0 0 0 -' + rr(660) + 'Z" fill="#df7f45"/>' +
-      '<path d="M0 0L' + rr(2890) + ' 0A' + rr(2890) + ' ' + rr(2890) + ' 0 0 0 0 -' + rr(2890) + 'Z" fill="#f2c14e"/>' +
-      '<path d="M0 0L' + rr(5150) + ' 0A' + rr(5150) + ' ' + rr(5150) + ' 0 0 0 0 -' + rr(5150) + 'Z" fill="#fff0b3"/>';
-    // the land caps on the globe part, for charm
-    s += '<path d="M-30 -28c6-4 12 0 16-4M-38 6c5 2 8-3 14 0 4 3 8 1 10 6M-20 30c5-2 9 2 14 0" stroke="#efe3c6" stroke-width="5" stroke-linecap="round" fill="none" opacity=".9"/>';
-    // the dot, on the cut face at 45 degrees
-    var d = rr(dep), a = -Math.PI / 4;
-    s += '<line x1="0" y1="0" x2="' + (r * Math.cos(a)).toFixed(1) + '" y2="' + (r * Math.sin(a)).toFixed(1) + '" stroke="#23223a" stroke-dasharray="2 2" stroke-width="1"/>' +
-      '<circle cx="' + (d * Math.cos(a)).toFixed(1) + '" cy="' + (d * Math.sin(a)).toFixed(1) + '" r="4.5" fill="#4b92db" stroke="#fff" stroke-width="1.5"/>' +
-      '<circle r="' + r + '" fill="none" stroke="#23223a" stroke-opacity=".35"/>';
-    $("cutaway").innerHTML = s;
-  }
-
-  // Depth over time: trunk plus the three futures. Deeper is lower, like the real thing.
-  function drawSpark() {
-    if (V.F) sparkKey = V.F.key + V.M + state.branch;
-    var svg = d3.select("#spark"), w = svg.node().clientWidth || 320, h = 56;
-    var series = [{ id: "trunk", color: "#23223a", fr: D.trunk }].concat(["ssp1", "ssp3", "ssp5"].map(function (b) {
-      return { id: b, color: HQ.BRANCH[b].color, fr: (D.trunk.length ? [D.trunk[D.trunk.length - 1]] : []).concat(D.frames.filter(function (f) { return f.sid === b; })) };
-    }));
-    var all = [];
-    series.forEach(function (s) { s.pts = s.fr.filter(function (f) { return stats[f.key]; }).map(function (f) { return [f.year, stats[f.key].depth, f]; }); all = all.concat(s.pts); });
-    svg.selectAll("*").remove();
-    if (all.length < 2) return;
-    var x = HQ.timeScale(2, w - 2);
-    var ext = d3.extent(all, function (d) { return d[1]; });
-    var y = d3.scaleLinear(ext, [6, h - 12]);
-    svg.append("text").attr("x", 2).attr("y", h).attr("font-size", 10).attr("fill", "#8a8699").text(HQ.yearLabel(years[0]));
-    svg.append("text").attr("x", w - 2).attr("y", h).attr("text-anchor", "end").attr("font-size", 10).attr("fill", "#8a8699").text(years[years.length - 1]);
-    svg.append("text").attr("x", 2).attr("y", 4).attr("font-size", 10).attr("fill", "#8a8699").text(fmt(ext[0]) + " km");
-    svg.append("text").attr("x", 2).attr("y", h - 14).attr("font-size", 10).attr("fill", "#8a8699").attr("dy", -2).text(fmt(ext[1]) + " km");
-    var line = d3.line().x(function (d) { return x(d[0]); }).y(function (d) { return y(d[1]); });
-    series.forEach(function (s) {
-      if (s.pts.length < 2) return;
-      var sel = s.id === "trunk" || s.id === state.branch;
-      svg.append("path").attr("d", line(s.pts)).attr("fill", "none").attr("stroke", s.color)
-        .attr("stroke-width", sel ? 2 : 1.5).attr("stroke-opacity", sel ? 1 : 0.45).attr("stroke-linecap", "round");
-    });
-    if (V.F && stats[V.F.key]) {
-      svg.append("line").attr("x1", x(V.F.year)).attr("x2", x(V.F.year)).attr("y1", 2).attr("y2", h - 12).attr("stroke", "#c9bfa6").attr("stroke-dasharray", "2 2");
-      svg.append("circle").attr("cx", x(V.F.year)).attr("cy", y(stats[V.F.key].depth)).attr("r", 4).attr("fill", "#4b92db").attr("stroke", "#fff").attr("stroke-width", 1.5);
-    }
-    svg.append("rect").attr("width", w).attr("height", h).attr("fill", "transparent")
-      .on("mousemove", function (ev) {
-        var yr = HQ.nearestYear(x.invert(d3.pointer(ev)[0])), f = HQ.frameAt(yr, state.branch);
-        $("sparkRead").textContent = f && stats[f.key] ? HQ.yearLabel(yr) + ": " + fmt(stats[f.key].depth) + " km down" : "";
-      })
-      .on("mouseleave", function () { $("sparkRead").textContent = ""; })
-      .on("click", function (ev) { HQ.setYear(x.invert(d3.pointer(ev)[0]), state.branch); });
-  }
-
   function legend() {
     var dash = function (d, c) { return '<svg width="24" height="8"><line x1="2" y1="4" x2="22" y2="4" stroke="' + (c || "#fff1cf") + '" stroke-width="2.2" stroke-linecap="round"' + (d ? ' stroke-dasharray="' + d + '"' : "") + "/></svg>"; };
     var rows = [
       '<div class="row"><svg width="30" height="14"><path d="M15 1c-3.3 0-5.5 2.4-5.5 5.5C9.5 10 15 14 15 14s5.5-4 5.5-7.5C20.5 3.4 18.3 1 15 1z" fill="#4b92db" stroke="#fff" stroke-width="1.2"/></svg>The fair HQ (p = ' + (state.p === Math.round(state.p) ? state.p : state.p.toFixed(1)) + ")</div>",
-      '<div class="row">Trail of the p = 1 HQ:</div><div class="row trail-styles"><span>' + dash("0.5 4") + "modelled</span><span>" + dash("") + "observed</span><span>" + dash("6 4") + "projected</span></div>",
+      '<div class="row trail-styles">trail:<span>' + dash("0.5 4") + "modelled</span><span>" + dash("") + "observed</span><span>" + dash("6 4") + "projected</span></div>",
       '<div class="row"><svg width="30" height="12"><circle cx="15" cy="6" r="4.5" fill="#0b1128" stroke="#fff" stroke-width="1.4"/><path d="M12.5 6h5" stroke="#fff" stroke-width="1.4"/></svg>seam between data sources</div>',
     ];
     if (state.year > FORK) rows.push('<div class="row">' + ["ssp1", "ssp3", "ssp5"].map(function (b) { return '<span class="swatch" style="background:' + HQ.BRANCH[b].color + '"></span>' + HQ.BRANCH[b].code; }).join(" &nbsp;") + "</div>");
     if (state.worst) rows.push('<div class="row"><svg width="30" height="14"><circle cx="15" cy="7" r="5.5" fill="none" stroke="#fff" stroke-width="3"/><circle cx="15" cy="7" r="5.5" fill="none" stroke="#e34948" stroke-width="3" stroke-dasharray="4.3 4.3"/></svg>worst-off (' + (state.worst === 0.999 ? "99.9" : "99") + "%)</div>");
     if (state.vote) rows.push('<div class="row"><svg width="30" height="14"><rect x="9" y="2" width="12" height="11" rx="2" fill="#b05fd0" stroke="#fff" stroke-width="1.2"/><path d="M12 5h6" stroke="#fff" stroke-width="1.5"/></svg>one country, one vote</div>');
     if (state.k > 1) rows.push('<div class="row"><svg width="30" height="14"><circle cx="15" cy="7" r="6" fill="#3987e5" stroke="#fff" stroke-width="1.2"/></svg>' + state.k + " offices, people coloured by nearest</div>");
-    rows.push('<div class="row" style="opacity:.8"><svg width="30" height="10"><rect x="8" y="3" width="4" height="4" fill="#ff8a3d" opacity=".4"/><rect x="14" y="3" width="4" height="4" fill="#ff8a3d" opacity=".7"/><rect x="20" y="3" width="4" height="4" fill="#ff8a3d"/></svg>where people live (' + (V.M === "urban" ? "cities" : V.M === "rural" ? "countryside" : "everyone") + ")</div>");
+    var who = V.M === "urban" ? "city folk" : V.M === "rural" ? "country folk" : "people";
+    if (EX.layers.blocks && V.P) {
+      var unit = V.P.W / FB.NB;
+      rows.push('<div class="row"><svg width="30" height="20"><path d="M12 6h6v13h-6z" fill="#c8463d"/><path d="M18 6l3-2v13l-3 2z" fill="#7c2b26"/><path d="M12 6l3-2h6l-3 2z" fill="#e8a49e"/><path d="M12 10.5h6M12 14.5h6" stroke="#7c2b26" stroke-width=".8"/></svg>' +
+        "1 block = 0.1% of " + who + " (" + people(unit) + ")</div>");
+      if (!(state.k > 1)) rows.push('<div class="row conts">' + FB.continents.map(function (n, i) { return '<span><span class="swatch" style="background:' + FB.COLORS[i] + '"></span>' + n + "</span>"; }).join("") + "</div>");
+    }
+    if (EX.layers.ropes) rows.push('<div class="row"><svg width="30" height="12"><path d="M2 3C10 3 12 6 16 6M2 10C10 10 12 6 16 6" stroke="#3b74c4" stroke-width="1.4" fill="none"/><path d="M16 6h12" stroke="#3b74c4" stroke-width="3.5"/></svg>' +
+      (state.k > 1 ? "ropes: each block to its nearest office" : EX.ropeMode === "direct" ? "ropes: each block's pull on the HQ" : "ropes: each block's pull, joined by region") + "</div>");
+    if (EX.layers.bowl) rows.push('<div class="row"><svg width="30" height="12"><ellipse cx="15" cy="6" rx="12" ry="4.5" fill="none" stroke="#c9c4e8" stroke-dasharray="3 2"/></svg>bowl: how much longer the average trip gets</div>');
+    rows.push('<div class="row" style="opacity:.8"><svg width="30" height="10"><rect x="8" y="3" width="4" height="4" fill="#ff8a3d" opacity=".4"/><rect x="14" y="3" width="4" height="4" fill="#ff8a3d" opacity=".7"/><rect x="20" y="3" width="4" height="4" fill="#ff8a3d"/></svg>' + (EX.layers.blocks ? "dots: people too spread out for a block" : "where " + who + " live") + "</div>");
     $("legend").innerHTML = rows.join("");
   }
+
+  // ---------------------------------------------------------------- the tug of war
+  // Every block pulls the HQ toward itself; the fair HQ is where the pulls cancel. The reader
+  // can grab the pin and test any spot (the probe); letting go replays the solver's own steps.
+  var FB = FairBlocks;
+  var EX = HQ.ex = {
+    probe: null, probeP: 1, path: null, settle: null,
+    layers: { blocks: true, ropes: true, bowl: false }, ropeMode: "bundled", story: null,
+  };
+  HQ.anchor = function () { return EX.probe || V.hq; };
+  HQ.blocksNow = function () { return V.P && V.P.idx ? FB.ofPop(D, V.P) : null; };
+  var webMemo = { key: null, val: null };
+  HQ.webNow = function () {
+    var B = HQ.blocksNow(), a = HQ.anchor();
+    if (!B || !a) return null;
+    var off = state.k > 1 && V.offices ? V.offices : null;
+    var key = [V.F.key, V.M, a.join(), state.p, off ? off.join() : "", EX.ropeMode].join("|");
+    if (webMemo.key !== key) webMemo = { key: key, val: FB.web(B, a, off ? 1 : state.p, { offices: off, direct: EX.ropeMode === "direct" }) };
+    return webMemo.val;
+  };
+  var pullMemo = { key: null, val: null };
+  function pullsAt(a) {
+    var key = [V.F.key, V.M, a.join(), state.p].join("|");
+    if (pullMemo.key !== key) pullMemo = { key: key, val: FB.pulls(D, V.P, a, state.p) };
+    return pullMemo.val;
+  }
+  HQ.probePulls = function () { return EX.probe && V.P ? pullsAt(EX.probe) : null; };
+  var hqCost = { key: null, km: 0 };
+  function hqMeanKm() {
+    var key = [V.F.key, V.M, V.hq.join(), state.p].join("|");
+    if (hqCost.key !== key) hqCost = { key: key, km: FB.pulls(D, V.P, V.hq, state.p).meanKm };
+    return hqCost.km;
+  }
+  HQ.probeExtraKm = function () { return EX.probe && V.hq ? Math.max(0, pullsAt(EX.probe).meanKm - hqMeanKm()) : null; };
+
+  function clearProbe() {
+    if (!EX.probe && !EX.settle) return;
+    EX.probe = null; EX.path = null; EX.settle = null;
+    clearTimeout(EX.clearTimer);
+    HQ.Globe && HQ.Globe.invalidate();
+  }
+  HQ.probeTo = function (x) {
+    EX.settle = null; EX.path = null; clearTimeout(EX.clearTimer);
+    EX.probe = x; EX.probeP = state.p;
+    HQ.Globe.invalidate();
+    scheduleWhy();
+  };
+  // Let go: the solver's own iteration, one step every 110 ms, from the tested spot.
+  HQ.probeRelease = function (onDone) {
+    if (!EX.probe || !V.P) return;
+    EX.settle = { x: EX.probe, t: undefined, n: 0, last: 0, onDone: onDone || null };
+    EX.path = [EX.probe];
+  };
+  function settleTick() {
+    var st = EX.settle;
+    if (!st || now() - st.last < 110) return;
+    st.last = now();
+    var r = S.fairPoint(V.P, state.p, st.x, { iters: 1, tol: 0, t: st.t });
+    st.x = r.x; st.t = r.t; st.n++;
+    EX.probe = st.x; EX.path.push(st.x);
+    var left = V.hq ? S.km(st.x, V.hq) : 0;
+    if (left < 2 || st.n >= 70 || (r.converged && st.n > 1)) {
+      EX.settle = null;
+      EX.settled = { steps: st.n, left: left };
+      if (st.onDone) st.onDone();
+      EX.clearTimer = setTimeout(function () { EX.probe = null; EX.path = null; HQ.Globe.invalidate(); refreshCards(); }, EX.story ? 1e9 : 1600);
+    }
+    HQ.Globe.invalidate();
+    scheduleWhy();
+  }
+  var whyQueued = false;
+  function scheduleWhy() {
+    if (whyQueued) return;
+    whyQueued = true;
+    requestAnimationFrame(function () { whyQueued = false; if (V.hq) { why(); legend(); } });
+  }
+
+  // The bowl: average trip from every spot, on a 2° grid from the blocks, as a background job.
+  var bowlCache = new Map();
+  HQ.bowlNow = function () {
+    if (!V.P || !V.P.idx) return null;
+    var key = fmKey() + "|" + state.p.toFixed(1);
+    if (bowlCache.has(key)) return bowlCache.get(key);
+    var B = HQ.blocksNow(), p = state.p;
+    addJob("bowl " + key, 2, "Shaping the bowl…", FB.bowlGen(B, p), function (vals) {
+      var lo = Infinity;
+      for (var i = 0; i < vals.length; i++) if (vals[i] < lo) lo = vals[i];
+      bowlCache.set(key, FB.rings(vals, lo));
+      if (bowlCache.size > 12) bowlCache.delete(bowlCache.keys().next().value);
+      HQ.Globe.invalidate();
+    });
+    return null;
+  };
+
+  // Tooltips for the stacks and the cable knots.
+  function people(v) {
+    return v >= 1e9 ? fmt(v / 1e9, 2) + " billion" : v >= 1e6 ? fmt(v / 1e6, v < 1e7 ? 1 : 0) + " million" : v >= 1e4 ? fmt(Math.round(v / 1e3)) + " thousand" : fmt(Math.round(v));
+  }
+  HQ.people = people;
+  function pullWords(en) {
+    var m = Math.hypot(en[0], en[1]) * 100;
+    if (m < 0.5) return "barely pulls at all (it surrounds the spot)";
+    var deg = (Math.atan2(en[0], en[1]) / (Math.PI / 180) + 360) % 360;
+    return "pulls " + COMPASS[Math.round(deg / 45) % 8] + " with strength <b>" + fmt(m, m < 10 ? 1 : 0) + "</b>";
+  }
+  HQ.stackTip = function (s, outside) {
+    var a = HQ.anchor(), km = a ? S.km(s.x, a) : 0, sub = FB.subregions[s.sub];
+    return "<b>" + s.n + " block" + (s.n === 1 ? "" : "s") + "</b> · " + fmt(s.n / 10, 1) + "% of " + (V.M === "all" ? "everyone" : V.M === "urban" ? "city folk" : "country folk") +
+      "<br>" + people(s.people) + " people, mostly " + esc(sub ? sub.name : "") +
+      "<br>" + fmt(km) + " km from the " + (EX.probe ? "tested spot" : "HQ") +
+      (state.p !== 1 && !(state.k > 1) ? '<br><span class="muted">at p = ' + state.p + " each of its ropes pulls " + fmt(Math.pow(km / Math.max(1, hqMeanKm()), state.p - 1), 2) + "× an average one</span>" : "") +
+      (outside ? '<br><b style="color:#e34948">Outside the worst-off circle</b>' : "");
+  };
+  HQ.knotTip = function (kn) {
+    var a = HQ.anchor(), pl = pullsAt(a);
+    var o = kn.level === 2 ? pl.cont[kn.cont] : pl.sub[kn.sub], name = kn.level === 2 ? FB.continents[kn.cont] : FB.subregions[kn.sub].name;
+    return "<b>" + esc(name) + "</b> · " + fmt(o.people / pl.W * 100, 1) + "% of people (" + kn.n + " blocks)" +
+      "<br>All its ropes together " + pullWords(o.en) + "." +
+      '<br><span class="muted">' + (kn.level === 2 ? "a continent's trunk: the sum of its regions' cables" : "a region's cable: the sum of its blocks' ropes") +
+      ". Strength 100 would be everyone pulling the same way.</span>";
+  };
+
+  // The "Why here?" card: the force polygon and a pull per continent.
+  function why() {
+    var a = HQ.anchor();
+    if (!a || !V.P || !V.P.idx) return;
+    var pl = pullsAt(a), probing = !!EX.probe, settling = !!EX.settle;
+    var netM = Math.hypot(pl.netEN[0], pl.netEN[1]) * 100;
+    var pTxt = state.p === Math.round(state.p) ? state.p : state.p.toFixed(1);
+    var lead;
+    if (settling) {
+      lead = "<b>Sliding back, step " + EX.settle.n + ".</b> " + (state.p <= 2
+        ? "Each step jumps to the average of everyone, weighted by 1&#8202;/&#8202;distance" + (state.p > 1 ? "<sup>" + fmt(2 - state.p, 1) + "</sup>" : "") + ". That is Weiszfeld's method, and it is how this page finds the HQ."
+        : "Each step follows the net pull downhill, the same way this page solves the dial.");
+    } else if (probing) {
+      lead = "<b>Out of balance.</b> Here the pulls leave a net tug of <b>" + fmt(netM, netM < 10 ? 1 : 0) + "</b> to the " + HQ.bearing(a, S.unit([a[0] + 0.01 * pl.net[0], a[1] + 0.01 * pl.net[1], a[2] + 0.01 * pl.net[2]])) +
+        " (red), and the average trip is <b>" + fmt(HQ.probeExtraKm()) + " km</b> longer. Let go and it slides back.";
+    } else {
+      lead = "<b>Every block pulls the HQ toward itself.</b> " + (state.p === 1
+        ? "At p = 1 every rope pulls equally hard, near or far."
+        : "At p = " + pTxt + " a rope pulls harder the longer it is (distance<sup>" + fmt(state.p - 1, 1) + "</sup>), so far-off blocks count for more.") +
+        " Chained tip to tail, the pulls come back to where they started: <b>here they cancel</b>. That is what makes it the fair spot.";
+    }
+    $("whyLead").innerHTML = lead;
+    $("whyPoly").innerHTML = polygonSVG(pl, probing);
+    var rows = pl.cont.slice().filter(function (c) { return c.people > 0; }).sort(function (x, y) { return y.people - x.people; });
+    $("whyRows").innerHTML = rows.map(function (c) {
+      var m = Math.hypot(c.en[0], c.en[1]) * 100, ang = Math.atan2(-c.en[1], c.en[0]) / (Math.PI / 180);
+      return '<div class="pull"><span class="swatch" style="background:' + FB.COLORS[c.i] + '"></span><span class="nm">' + esc(c.name) + "</span>" +
+        '<span class="pc">' + fmt(c.people / pl.W * 100, c.people / pl.W < 0.1 ? 1 : 0) + "%</span>" +
+        '<svg width="18" height="18" viewBox="-9 -9 18 18" aria-hidden="true"><g transform="rotate(' + ang.toFixed(0) + ')"><path d="M-6 0h9" stroke="' + FB.COLORS[c.i] + '" stroke-width="2.2" stroke-linecap="round"/><path d="M7 0l-4.5-3.5v7z" fill="' + FB.COLORS[c.i] + '"/></g></svg>' +
+        '<span class="st">' + fmt(m, m < 10 ? 1 : 0) + "</span></div>";
+    }).join("") + '<div class="pull net"><span class="swatch" style="background:' + (netM > 0.5 ? "#e34948" : "#4b92db") + '"></span><span class="nm">' + (netM > 0.5 ? "Net pull" : "All together") +
+      '</span><span class="pc"></span><span></span><span class="st">' + fmt(netM, netM < 10 ? 1 : 0) + "</span></div>";
+    $("whyFoot").innerHTML = "Share of people, the direction its ropes pull, and how hard (100 would be everyone pulling the same way)." +
+      (FB.hasRegions ? "" : " Regions are guessed from lat/lon in the demo data.");
+  }
+
+  // Region pulls chained tip to tail, grouped by continent (continents in angle order, so the
+  // chords make a convex loop). A balanced spot closes the loop; a gap is the net pull.
+  function polygonSVG(pl, probing) {
+    var W0 = 320, H0 = 196, pad = 24;
+    var cs = pl.cont.filter(function (c) { return Math.hypot(c.en[0], c.en[1]) > 1e-6; });
+    cs.sort(function (a, b) { return Math.atan2(a.en[1], a.en[0]) - Math.atan2(b.en[1], b.en[0]); });
+    var pts = [[0, 0]], chords = [], subs = [];
+    cs.forEach(function (c) {
+      var start = pts[pts.length - 1];
+      var ss = pl.sub.filter(function (s) { return s.cont === c.i && Math.hypot(s.en[0], s.en[1]) > 1e-6; });
+      ss.sort(function (a, b) { return Math.atan2(a.en[1], a.en[0]) - Math.atan2(b.en[1], b.en[0]); });
+      ss.forEach(function (s) {
+        var q = pts[pts.length - 1], r = [q[0] + s.en[0], q[1] - s.en[1]];
+        subs.push({ a: q, b: r, s: s }); pts.push(r);
+      });
+      chords.push({ a: start, b: pts[pts.length - 1], c: c });
+    });
+    var xs = pts.map(function (p) { return p[0]; }), ys = pts.map(function (p) { return p[1]; });
+    var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs), y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+    var k = Math.min((W0 - 2 * pad) / Math.max(1e-9, x1 - x0), (H0 - 2 * pad) / Math.max(1e-9, y1 - y0));
+    var ox = (W0 - k * (x1 + x0)) / 2, oy = (H0 - k * (y1 + y0)) / 2;
+    var X = function (p) { return (ox + k * p[0]).toFixed(1); }, Y = function (p) { return (oy + k * p[1]).toFixed(1); };
+    var arrow = function (a, b, col, w, op) {
+      var dx = (b[0] - a[0]) * k, dy = (b[1] - a[1]) * k, L = Math.hypot(dx, dy);
+      if (L < 0.5) return "";
+      var s = '<line x1="' + X(a) + '" y1="' + Y(a) + '" x2="' + X(b) + '" y2="' + Y(b) + '" stroke="' + col + '" stroke-width="' + w + '" stroke-linecap="round" opacity="' + op + '"/>';
+      if (L > 7) {
+        var ux = dx / L, uy = dy / L, hx = +X(b), hy = +Y(b), hs = Math.min(6, 2 + w * 1.4);
+        s += '<path d="M' + hx + " " + hy + "L" + (hx - hs * ux - hs * 0.6 * uy).toFixed(1) + " " + (hy - hs * uy + hs * 0.6 * ux).toFixed(1) + "L" + (hx - hs * ux + hs * 0.6 * uy).toFixed(1) + " " + (hy - hs * uy - hs * 0.6 * ux).toFixed(1) + 'Z" fill="' + col + '" opacity="' + op + '"/>';
+      }
+      return s;
+    };
+    var cx0 = xs.reduce(function (a, b) { return a + b; }, 0) / xs.length, cy0 = ys.reduce(function (a, b) { return a + b; }, 0) / ys.length;
+    var placed = [[+X([0, 0]) - 8, +Y([0, 0]) - 8, 16, 16]];
+    var s = '<rect width="' + W0 + '" height="' + H0 + '" fill="none"/>';
+    chords.forEach(function (ch) { s += arrow(ch.a, ch.b, FB.COLORS[ch.c.i], 7, 0.22); });
+    subs.forEach(function (o) { s += "<g><title>" + esc(o.s.name) + "</title>" + arrow(o.a, o.b, FB.COLORS[o.s.cont], 2, 0.95) + "</g>"; });
+    chords.forEach(function (ch) {
+      var mx = (ch.a[0] + ch.b[0]) / 2, my = (ch.a[1] + ch.b[1]) / 2, dx = mx - cx0, dy = my - cy0, d = Math.hypot(dx, dy) || 1;
+      if (Math.hypot(ch.b[0] - ch.a[0], ch.b[1] - ch.a[1]) * k < 16) return;
+      // outside the loop, anchored away from it, kept in the box and off earlier labels
+      var tw = ch.c.name.length * 5.6, ux = dx / d, uy = dy / d, tx = ox + k * mx + ux * 9, ty = oy + k * my + uy * 9;
+      var left = ux > 0.35 ? tx : ux < -0.35 ? tx - tw : tx - tw / 2;
+      left = Math.max(3, Math.min(W0 - 3 - tw, left)); ty = Math.max(9, Math.min(H0 - 7, ty));
+      for (var tries = 0; tries < 4 && placed.some(function (b) { return left < b[0] + b[2] && b[0] < left + tw && ty - 6 < b[1] + b[3] && b[1] < ty + 6; }); tries++) ty += uy >= 0 ? 12 : -12;
+      placed.push([left, ty - 6, tw, 12]);
+      s += '<text x="' + left.toFixed(1) + '" y="' + ty.toFixed(1) + '" dominant-baseline="middle" font-size="10.5" font-weight="700" fill="' + FB.COLORS[ch.c.i] + '" stroke="#f3ead6" stroke-width="3" paint-order="stroke">' + esc(ch.c.name) + "</text>";
+    });
+    var end = pts[pts.length - 1], gap = Math.hypot(end[0], end[1]) * k;
+    if (gap > 3) s += '<g stroke-dasharray="4 3">' + arrow([0, 0], end, "#e34948", 2.6, 1) + "</g>";
+    s += '<circle cx="' + X([0, 0]) + '" cy="' + Y([0, 0]) + '" r="5" fill="' + (probing ? "#f0a43a" : "#4b92db") + '" stroke="#fff" stroke-width="1.6"/>';
+    s += '<text x="' + (W0 - 4) + '" y="12" text-anchor="end" font-size="10" fill="#8a8699">N ↑</text>';
+    return s;
+  }
+
+  // Layer switches and the step-by-step story.
+  ["blocks", "ropes", "bowl"].forEach(function (k) {
+    var el = $("lay-" + k);
+    el.checked = EX.layers[k];
+    el.addEventListener("change", function () { EX.layers[k] = el.checked; HQ.Globe.invalidate(); legend(); });
+  });
+  function syncLayers() { ["blocks", "ropes", "bowl"].forEach(function (k) { $("lay-" + k).checked = EX.layers[k]; }); }
+
+  var STORY = [
+    { layers: { blocks: true, ropes: false, bowl: false }, text: function () {
+      return "<b>These are the people of " + HQ.yearLabel(V.F.year) + ".</b> Each block is 0.1% of everyone alive then, about " + people(V.P.W / FB.NB) + " people. Tall stacks are where people crowd.";
+    } },
+    { layers: { blocks: true, ropes: true, bowl: false }, ropes: "direct", text: function () {
+      return "<b>Every block ties a rope to the HQ</b> and pulls it towards home. " + (state.p === 1 ? "Near or far, every rope pulls equally hard." : "At p = " + state.p + ", longer ropes pull harder.");
+    } },
+    { layers: { blocks: true, ropes: true, bowl: false }, ropes: "bundled", text: function () {
+      return "<b>Ropes from one region twist into a cable</b>, and cables into a trunk per continent. A cable pulls exactly as hard as its ropes together, so the sum can be done region by region.";
+    } },
+    { layers: { blocks: true, ropes: true, bowl: false }, ropes: "bundled", probe: true, text: function () {
+      return "<b>Now put the HQ somewhere else.</b> The pulls stop cancelling: the red arrow is what is left over, the net pull. It points back towards the fair spot.";
+    } },
+    { layers: { blocks: true, ropes: true, bowl: false }, ropes: "bundled", settle: true, text: function () {
+      return "<b>Let go and it slides home</b>, one step at a time. " + (state.p <= 2 ? "Each step moves to the average of everyone, weighted by 1 / distance (Weiszfeld's method)." : "Each step follows the net pull downhill.") + " This is exactly how the page finds the HQ.";
+    } },
+    { layers: { blocks: true, ropes: true, bowl: true }, ropes: "bundled", text: function () {
+      return "<b>At the fair spot every pull is cancelled.</b> The rings show how much longer the average trip gets as the HQ walks away: it sits at the bottom of a bowl. Drag the pin to try any spot yourself.";
+    } },
+  ];
+  function storyGo(i) {
+    var st = EX.story, step = STORY[i];
+    st.i = i;
+    EX.layers = Object.assign({}, step.layers); syncLayers();
+    EX.ropeMode = step.ropes || "bundled";
+    clearProbe();
+    if (step.probe || step.settle) {
+      var pl = FB.pulls(D, V.P, V.hq, state.p), big = pl.cont.slice().sort(function (a, b) { return Math.hypot(b.en[0], b.en[1]) - Math.hypot(a.en[0], a.en[1]); })[0];
+      var v = big.v, m = Math.hypot(v[0], v[1], v[2]) || 1, t = 3000 / 6371.0088, h = V.hq;
+      var x = S.unit([Math.cos(t) * h[0] - Math.sin(t) * v[0] / m, Math.cos(t) * h[1] - Math.sin(t) * v[1] / m, Math.cos(t) * h[2] - Math.sin(t) * v[2] / m]);
+      EX.probe = x; EX.probeP = state.p;
+      HQ.Globe.flyTo(S.unit([x[0] + h[0], x[1] + h[1], x[2] + h[2]]), 700, true);
+      if (step.settle) setTimeout(function () { if (EX.story && EX.story.i === i) HQ.probeRelease(); }, 500);
+    } else HQ.Globe.flyTo(V.hq, 700, true, 20);
+    $("storyText").innerHTML = step.text();
+    $("storyCount").textContent = (i + 1) + " / " + STORY.length;
+    $("storyBack").disabled = i === 0;
+    $("storyNext").textContent = i === STORY.length - 1 ? "Done" : "Next";
+    HQ.Globe.invalidate(); refreshCards();
+  }
+  function storyOpen() {
+    if (state.playing) HQ.togglePlay();
+    EX.story = { saved: Object.assign({}, EX.layers), i: 0 };
+    $("story").hidden = false;
+    storyGo(0);
+  }
+  function storyClose() {
+    if (!EX.story) return;
+    EX.layers = EX.story.saved; EX.story = null; EX.ropeMode = "bundled";
+    $("story").hidden = true;
+    clearProbe(); syncLayers(); refreshCards(); HQ.Globe.invalidate();
+  }
+  $("whyStory").addEventListener("click", storyOpen);
+  $("storyBack").addEventListener("click", function () { if (EX.story.i > 0) storyGo(EX.story.i - 1); });
+  $("storyNext").addEventListener("click", function () { if (EX.story.i < STORY.length - 1) storyGo(EX.story.i + 1); else storyClose(); });
+  $("storyClose").addEventListener("click", storyClose);
 
   // ---------------------------------------------------------------- controls
   HQ.setYear = function (year, branch) {
@@ -635,13 +852,13 @@
   });
   $("postcardClose").addEventListener("click", function () { $("postcardModal").hidden = true; });
   $("postcardModal").addEventListener("click", function (ev) { if (ev.target.id === "postcardModal") $("postcardModal").hidden = true; });
-  document.addEventListener("keydown", function (ev) { if (ev.key === "Escape") $("postcardModal").hidden = true; });
+  document.addEventListener("keydown", function (ev) { if (ev.key === "Escape") { $("postcardModal").hidden = true; storyClose(); } });
 
   // ---------------------------------------------------------------- go
   HQ.Globe.init($("globe"));
   HQ.Timeline.init($("tl"));
   syncBranchButtons();
-  window.addEventListener("resize", function () { HQ.Globe.resize(); HQ.Timeline.update(); drawSpark(); });
+  window.addEventListener("resize", function () { HQ.Globe.resize(); HQ.Timeline.update(); });
   update();
   HQ.Globe.jumpTo(V.hq || p1Base());
   addJob("chain", 9, null, chainGen(), chainDone);

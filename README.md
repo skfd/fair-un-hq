@@ -36,8 +36,22 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
     one person, one vote.
   - **k HQs.** The optimal 2, 3 or 4 offices (spherical k-medians), with the world coloured
     by which office each person is closest to. No comparison with real UN offices.
-  - **Depth of humanity.** The 3D centre of mass of all people lies inside the Earth; its
-    depth below the surface measures how lopsided humanity is, epoch by epoch.
+- **Show the calculation, not just the answer** (2026-10-31). The reader should be able to
+  see why the HQ lands where it does:
+  - **People as blocks.** Each frame's people are shared out as 1,000 blocks stacked on
+    ~500 km patches, so a block is always 0.1% of everyone alive that year. Too few people for
+    a block stay as faint dots (about 4%).
+  - **A tug of war.** Every block pulls the HQ towards itself, with strength distanceᵖ⁻¹
+    (equal ropes at p=1). The fair HQ is where the pulls cancel. Ropes are drawn from every
+    stack and bundled stack → region → continent → HQ, each cable as wide as the pull it
+    carries. The dial, the offices and city/country folk are all the same ropes, reweighted.
+  - **Why here? card.** Each region's pull, chained tip to tail: at the fair HQ the chain
+    closes into a loop, anywhere else the gap is the net pull.
+  - **Drag the pin** to test any spot: the ropes and the net pull follow, and letting go
+    replays the solver's own steps (Weiszfeld) back home.
+  - **Step-by-step story** and an optional **bowl**: rings of extra average trip around the HQ.
+  - The depth-of-humanity card (3D centre of mass) is dropped. The centroid stays only as the
+    solver's starting guess.
 - **Time span: 10,000 BC to 2100.** All series use a 0.5° grid, every 5 years from 1850:
   - **10,000 BC–1840:** HYDE 3.3, at HYDE's own steps: every 1000 years to 0 AD, every 100
     to 1700, every 10 to 1840. The timeline gives this era its left 30%.
@@ -99,6 +113,15 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
 - The anti-HQ is dropped: the point farthest on average turns out to be exactly the
   antipode of the fair HQ.
 - The dial is capped at p=8.
+- Blocks are a share of that year's people (1,000 per frame), not a fixed headcount, so the
+  picture works in 10,000 BC too. Patches are a 2,000-point Fibonacci lattice. Rounding is
+  largest remainder, so every frame has exactly 1,000.
+- Regions are the UN M49 subregions, grouped into six continents (the Americas split into
+  Latin America and North America). Cells take their country from the vendored Natural Earth
+  outlines (`scripts/build_regions.js`).
+- The Why here? card and the knot tooltips use exact pulls over every 0.5° cell. The drawn
+  ropes and the bowl use the blocks: the HQ solved from the blocks alone lands within
+  10–60 km of the real one (245 km in 10,000 BC, where the bowl is flat).
 - HYDE's uneven steps are shipped as they are, not resampled to 5 years. The timeline is
   piecewise linear (10,000 BC–0 AD, 0–1700, 1700–1850, 1850–2100 at 13/9/8/70% of its
   width), and Play runs from 10,000 BC.
@@ -116,6 +139,7 @@ sh scripts/fetch_isimip.sh    # ~220 MB, ISIMIP 30 arcmin history + SSP1/3/5
 .venv/Scripts/python scripts/fetch_hyde.py    # ~900 MB, HYDE 3.3 total + urban 10000 BC-1850
 .venv/Scripts/python scripts/build_data.py    # ~5 min, writes web/data/*.js + checks.md
 .venv/Scripts/python scripts/build_towns.py   # GeoNames towns + UN member capitals
+node scripts/build_regions.js                  # cell -> UN subregion, for the rope web
 ```
 
 Without `web/data/`, the page falls back to a synthetic mock (`web/mock/`).
@@ -132,6 +156,8 @@ citations are in `LICENSE-DATA.md`. The vendored libraries keep their own licenc
 - **Built:**
   - The data pipeline. Its checks are in `docs/checks.md`.
   - The globe page, with every feature listed under "Decided".
+  - The tug of war: at the fair HQ the exact net pull is ~10⁻¹² (balanced); move off it and
+    the net pull points back.
   - The JS solver. It matches the Python reference (`scripts/fair.py`) to under 1 m on all
     121 frames.
 - **Findings:** the sanity check holds. The trail is smooth and 0.5° matches 0.1° to 0.2 km

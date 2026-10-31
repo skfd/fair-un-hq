@@ -31,7 +31,9 @@
     var polys = [];
     fc.features.forEach(function (f) {
       var g = f.geometry, ps = g.type === "Polygon" ? [g.coordinates] : g.coordinates;
-      ps.forEach(function (p) { var q = poly(p); if (q) polys.push(q); });
+      // Thinning can flip a small ring inside out, and then it covers the whole globe: keep the
+      // original wherever the thinned polygon comes out bigger than a hemisphere.
+      ps.forEach(function (p) { var q = poly(p); if (q) polys.push(d3.geoArea({ type: "Polygon", coordinates: q }) > 2 * Math.PI ? p : q); });
     });
     return { type: "MultiPolygon", coordinates: polys };
   }
@@ -67,7 +69,7 @@
     dirty = true;
   };
   G.invalidate = function () { dirty = true; };
-  G.isDragging = function () { return !!(drag && drag.moved); };
+  G.isDragging = function () { return !!(drag && drag.moved && !drag.pin); };   // spinning, not moving the pin
   G.zoomBy = function (f) { zoom = Math.max(0.7, Math.min(9, zoom * f)); dirty = true; };
   G.rotation = function () { return rot.slice(); };
 
@@ -97,11 +99,28 @@
   // ---------------------------------------------------------------- interaction
   function down(ev) {
     canvas.setPointerCapture(ev.pointerId);
+    var r = canvas.getBoundingClientRect(), h = hitAt(ev.clientX - r.left, ev.clientY - r.top);
+    if (h && h.pin && HQ.probeTo) {   // grab the HQ pin: test any spot (see app.js, the tug of war)
+      drag = { pin: true, moved: true, dy: h.y + 21 - (ev.clientY - r.top) };
+      canvas.classList.add("dragging"); setHover(null);
+      return;
+    }
     drag = { x: ev.clientX, y: ev.clientY, rot: rot.slice(), moved: false };
     fly = null;
   }
+  function pointAt(px, py) {   // the globe point under a screen point, or null off the disc
+    var R = R0 * zoom, cx = W / 2, cy = H / 2 + 6;
+    if (Math.hypot(px - cx, py - cy) > R * 0.995) return null;
+    var ll = projection.invert([px, py]);
+    return ll ? S.toXYZ(ll[1], ll[0]) : null;
+  }
   function move(ev) {
     var r = canvas.getBoundingClientRect(), px = ev.clientX - r.left, py = ev.clientY - r.top;
+    if (drag && drag.pin) {
+      var x = pointAt(px, py + drag.dy);
+      if (x) HQ.probeTo(x);
+      return;
+    }
     if (drag) {
       var dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
       if (!drag.moved && Math.hypot(dx, dy) > 3) { drag.moved = true; canvas.classList.add("dragging"); setHover(null); }
@@ -115,6 +134,11 @@
     setHover(hitAt(px, py), px, py);
   }
   function up(ev) {
+    if (drag && drag.pin) {
+      drag = null; canvas.classList.remove("dragging");
+      HQ.probeRelease();
+      return;
+    }
     if (drag && !drag.moved) {
       var r = canvas.getBoundingClientRect(), h = hitAt(ev.clientX - r.left, ev.clientY - r.top);
       if (h && h.year) HQ.setYear(h.year, h.branch || undefined);
@@ -127,15 +151,19 @@
   function hitAt(px, py) {
     var best = null, bd = 1e9;
     for (var i = hits.length - 1; i >= 0; i--) {
-      var h = hits[i], d = Math.hypot(h.x - px, h.y - py) - h.r;
+      var h = hits[i], d = h.box
+        ? (px >= h.box[0] && px <= h.box[2] && py >= h.box[1] && py <= h.box[3] ? -1 : 99)
+        : Math.hypot(h.x - px, h.y - py) - h.r;
       if (d < 6 && d < bd) { bd = d; best = h; }
     }
     return best;
   }
   function setHover(h, px, py) {
     var tip = document.getElementById("tip");
+    if ((hover && hover.kind) !== (h && h.kind)) dirty = true;
     hover = h;
     canvas.classList.toggle("pointing", !!(h && h.year));
+    canvas.classList.toggle("grabbable", !!(h && h.pin));
     if (!h) { tip.hidden = true; return; }
     tip.innerHTML = h.html();
     tip.hidden = false;
@@ -175,7 +203,7 @@
     return out;
   }
 
-  function drawDots(c, P, labels, V, R, cx, cy, scale) {
+  function drawDots(c, P, labels, V, R, cx, cy, scale, fade) {
     if (!P) return;
     var gr = dotGroups(P, labels), X = P.xyz, order = gr.order;
     var size = Math.max(1.1, R * 0.5 * D2R * 0.62) * (scale || 1), half = size / 2;
@@ -184,7 +212,7 @@
       var s = gr.start[g], e = gr.start[g + 1];
       if (s === e) continue;
       var b = g % gr.nb, col = labels ? CLUSTER[(g / gr.nb) | 0] : "#ff8a3d";
-      c.globalAlpha = (labels ? 0.14 : 0.07) + (labels ? 0.8 : 0.8) * Math.pow(b / (gr.nb - 1), 1.5);
+      c.globalAlpha = ((labels ? 0.14 : 0.07) + 0.8 * Math.pow(b / (gr.nb - 1), 1.5)) * (fade || 1);
       c.fillStyle = col;
       c.beginPath();
       for (var j = s; j < e; j++) {
@@ -334,6 +362,180 @@
     c.fillStyle = "#fff"; c.fill();
   }
 
+  // ---------------------------------------------------------------- the tug of war
+  // Blocks stand on the globe as little towers; ropes run from them to the HQ (or to the spot
+  // being tested), bundled by region and continent. See blocks.js for the maths.
+  function shade(hex, k) {   // k < 0 darkens, k > 0 mixes towards white
+    var n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+    var f = function (v) { return Math.round(k < 0 ? v * (1 + k) : v + (255 - v) * k); };
+    return "rgb(" + f(r) + "," + f(g) + "," + f(b) + ")";
+  }
+  var FB = function () { return window.FairBlocks; };
+  function contColor(k) { return FB().COLORS[k]; }
+
+  function arc(c, a, b) { path({ type: "LineString", coordinates: [geo(a), geo(b)] }); }
+
+  function drawRopes(c, V, R, cx, cy) {
+    var w = HQ.webNow ? HQ.webNow() : null, out = [];
+    if (!w) return out;
+    var k = 0.034 * Math.sqrt(R / 460), offices = !!(HQ.view.offices && HQ.state.k > 1);
+    c.lineCap = "round";
+    var segs = w.segs.slice().sort(function (a, b) { return a.level - b.level || a.T - b.T; });
+    [0, 1].forEach(function (pass) {
+      segs.forEach(function (s) {
+        var lw = Math.max(s.level ? 1.2 : 0.55, s.T * k);
+        if (pass === 0 && s.level === 0) return;   // halos only under the cables
+        c.beginPath(); arc(c, s.a, s.b);
+        if (pass === 0) { c.globalAlpha = 0.35; c.lineWidth = lw + 2.5; c.strokeStyle = "#0b1128"; }
+        else {
+          c.globalAlpha = s.level === 0 ? 0.55 : s.level === 1 ? 0.8 : 0.88;
+          c.lineWidth = lw;
+          c.strokeStyle = offices ? CLUSTER[s.office] : contColor(s.cont);
+        }
+        c.stroke();
+      });
+    });
+    c.globalAlpha = 1;
+    w.knots.forEach(function (kn) {
+      var p = proj(kn.x, V, R, cx, cy);
+      if (!p.vis) return;
+      var r = kn.level === 2 ? 4.5 : 3;
+      c.beginPath(); c.arc(p.x, p.y, r, 0, 2 * Math.PI);
+      c.fillStyle = contColor(kn.cont); c.fill(); c.lineWidth = 1.3; c.strokeStyle = "#fff"; c.stroke();
+      out.push({ x: p.x, y: p.y, r: r + 2, html: function () { return HQ.knotTip ? HQ.knotTip(kn) : ""; } });
+    });
+    return out;
+  }
+
+  function drawTowers(c, V, R, cx, cy) {
+    var B = HQ.blocksNow ? HQ.blocksNow() : null, out = [];
+    if (!B) return out;
+    var Vw = HQ.view, offices = Vw.offices && HQ.state.k > 1 ? Vw.offices : null, worst = Vw.worst;
+    var w = Math.max(3.5, Math.min(15, R * 0.019)), hb = Math.max(1.2, Math.min(7, R * 0.0052));
+    var dx = w * 0.42, dy = w * 0.3, lines = hb >= 2.2;
+    var list = [];
+    B.stacks.forEach(function (s) {
+      var p = proj(s.x, V, R, cx, cy);
+      if (p.d <= 0.03) return;
+      list.push({ s: s, p: p });
+    });
+    list.sort(function (a, b) { return a.p.y - b.p.y; });
+    list.forEach(function (o) {
+      var s = o.s, p = o.p, H = s.n * hb, x0 = p.x - w / 2, yb = p.y, yt = yb - H;
+      var col = contColor(s.cont), out1 = false;
+      if (offices) {
+        var bi = 0, bd = -2;
+        offices.forEach(function (x, i) { var d = x[0] * s.x[0] + x[1] * s.x[1] + x[2] * s.x[2]; if (d > bd) { bd = d; bi = i; } });
+        col = CLUSTER[bi];
+      }
+      if (worst && S.km(worst.x, s.x) > worst.km) { col = "#e34948"; out1 = true; }
+      c.globalAlpha = Math.min(1, (p.d - 0.03) * 6);
+      c.fillStyle = "rgba(20,15,10,.22)";
+      c.beginPath(); c.ellipse(p.x + dx * 0.4, yb + 0.5, w * 0.75, w * 0.28, 0, 0, 2 * Math.PI); c.fill();
+      // right side, front, top
+      c.beginPath(); c.moveTo(x0 + w, yb); c.lineTo(x0 + w + dx, yb - dy); c.lineTo(x0 + w + dx, yt - dy); c.lineTo(x0 + w, yt); c.closePath();
+      c.fillStyle = shade(col, -0.38); c.fill();
+      c.fillStyle = col; c.fillRect(x0, yt, w, H);
+      c.beginPath(); c.moveTo(x0, yt); c.lineTo(x0 + dx, yt - dy); c.lineTo(x0 + w + dx, yt - dy); c.lineTo(x0 + w, yt); c.closePath();
+      c.fillStyle = shade(col, 0.45); c.fill();
+      if (lines && s.n > 1) {
+        c.beginPath();
+        for (var k = 1; k < s.n; k++) {
+          var y = Math.round(yb - k * hb) + 0.5;
+          c.moveTo(x0, y); c.lineTo(x0 + w, y); c.lineTo(x0 + w + dx, y - dy);
+        }
+        c.lineWidth = 0.7; c.strokeStyle = shade(col, -0.5); c.globalAlpha *= 0.55; c.stroke();
+      }
+      if (out1) { c.globalAlpha = 1; c.lineWidth = 1.4; c.strokeStyle = "#fff"; c.strokeRect(x0 - 0.5, yt - 0.5, w + 1, H + 1); }
+      c.globalAlpha = 1;
+      out.push({ box: [x0 - 1, yt - dy - 1, x0 + w + dx + 1, yb + 2], x: p.x, y: yb, r: 0, html: function () { return HQ.stackTip ? HQ.stackTip(s, out1) : ""; } });
+    });
+    return out;
+  }
+
+  function drawBowl(c, V, R, cx, cy) {
+    var rings = HQ.bowlNow ? HQ.bowlNow() : null;
+    if (!rings) return;
+    c.save();
+    c.setLineDash([4, 3]); c.lineCap = "round";
+    rings.forEach(function (rg, i) {
+      c.beginPath(); path({ type: "MultiLineString", coordinates: rg.lines });
+      c.lineWidth = 1.2; c.strokeStyle = "rgba(25, 30, 70," + (0.75 - i * 0.05) + ")"; c.stroke();
+    });
+    c.setLineDash([]);
+    // one label per ring, at its highest visible point
+    c.font = "600 10.5px " + getComputedStyle(document.body).fontFamily;
+    c.textAlign = "center"; c.textBaseline = "middle";
+    rings.forEach(function (rg) {
+      var best = null;
+      rg.lines.forEach(function (ln) { ln.forEach(function (ll, j) {
+        if (j % 3) return;
+        var p = proj(S.toXYZ(ll[1], ll[0]), V, R, cx, cy);
+        if (p.d > 0.25 && (!best || p.y < best.y)) best = p;
+      }); });
+      if (!best) return;
+      var t = "+" + HQ.fmt(rg.km) + " km", tw = c.measureText(t).width + 8;
+      c.fillStyle = "rgba(251,246,234,.92)"; G.roundRect(c, best.x - tw / 2, best.y - 7, tw, 14, 7); c.fill();
+      c.fillStyle = "#23223a"; c.fillText(t, best.x, best.y + 0.5);
+    });
+    c.textAlign = "start";
+    c.restore();
+  }
+
+  function drawWorstCircle(c, worst) {
+    var a = S.toLatLon(worst.x), deg = worst.km / 6371.0088 / D2R;
+    c.beginPath(); path(d3.geoCircle().center([a[1], a[0]]).radius(deg)());
+    c.setLineDash([6, 4]); c.lineWidth = 2; c.strokeStyle = "rgba(227,73,72,.9)"; c.stroke(); c.setLineDash([]);
+  }
+
+  function drawVoteRopes(c, vote) {
+    var C = FAIR.capitals || [];
+    c.beginPath();
+    C.forEach(function (cap) { arc(c, S.toXYZ(cap.lat, cap.lon), vote); });
+    c.lineWidth = 0.9; c.strokeStyle = "rgba(176,95,208,.75)"; c.stroke();
+  }
+
+  // The spot under test: the settle path, a ghost of the real HQ (drawn by the caller), the
+  // probe pin and the net pull as a red arrow.
+  function drawProbe(c, V, R, cx, cy, put, labels) {
+    var ex = HQ.ex, x = ex.probe;
+    if (ex.path && ex.path.length > 1) {
+      c.beginPath();
+      ex.path.forEach(function (q, i) { if (i) arc(c, ex.path[i - 1], q); });
+      c.setLineDash([2, 3]); c.lineWidth = 1.6; c.strokeStyle = "#fff"; c.stroke(); c.setLineDash([]);
+      ex.path.forEach(function (q) {
+        var p = put(q); if (!p) return;
+        c.beginPath(); c.arc(p.x, p.y, 2.4, 0, 2 * Math.PI); c.fillStyle = "#ffd27a"; c.fill();
+      });
+    }
+    var pp = put(x);
+    if (!pp) return;
+    var pl = HQ.probePulls ? HQ.probePulls() : null;
+    if (pl) {
+      var net = pl.net, m = Math.hypot(net[0], net[1], net[2]);
+      if (m > 0.004) {
+        var u = [net[0] / m, net[1] / m, net[2] / m], q = S.unit([x[0] + 0.01 * u[0], x[1] + 0.01 * u[1], x[2] + 0.01 * u[2]]);
+        var p1 = proj(q, V, R, cx, cy), vx = p1.x - pp.x, vy = p1.y - pp.y, vn = Math.hypot(vx, vy) || 1;
+        var L = Math.min(150, 26 + 300 * m), ex2 = pp.x + vx / vn * L, ey2 = pp.y + vy / vn * L;
+        c.lineCap = "round";
+        c.beginPath(); c.moveTo(pp.x, pp.y); c.lineTo(ex2, ey2);
+        c.lineWidth = 10; c.strokeStyle = "rgba(11,17,40,.6)"; c.stroke();
+        c.lineWidth = 7.5; c.strokeStyle = "#fff"; c.stroke();
+        c.lineWidth = 4.5; c.strokeStyle = "#e34948"; c.stroke();
+        var ang = Math.atan2(ey2 - pp.y, ex2 - pp.x);
+        c.beginPath(); c.moveTo(ex2 + 9 * Math.cos(ang), ey2 + 9 * Math.sin(ang));
+        c.lineTo(ex2 + 9 * Math.cos(ang + 2.4), ey2 + 9 * Math.sin(ang + 2.4));
+        c.lineTo(ex2 + 9 * Math.cos(ang - 2.4), ey2 + 9 * Math.sin(ang - 2.4)); c.closePath();
+        c.fillStyle = "#e34948"; c.fill(); c.lineWidth = 1.8; c.strokeStyle = "#fff"; c.stroke();
+        labels.push([ex2 + 10 * Math.cos(ang) + (Math.cos(ang) < 0 ? -64 : 4), ey2 + 10 * Math.sin(ang), "net pull", "#e34948", ex2]);
+      }
+    }
+    pin(c, pp.x, pp.y, "#f0a43a");
+    hits.push({ x: pp.x, y: pp.y - 21, r: 12, pin: true, html: function () { return "<b>Testing this spot</b><br>" + HQ.ll(x); } });
+    var extra = HQ.probeExtraKm ? HQ.probeExtraKm() : null;
+    labels.push([pp.x + 14, pp.y - 21, extra == null ? "testing" : extra < 0.5 ? "back at the fair HQ" : "+" + HQ.fmt(extra) + " km average trip", "#f0a43a", pp.x]);
+  }
+
   // ---------------------------------------------------------------- the frame
   // Ocean, land, dots and shading only change with the view or the population, so they
   // are cached in an offscreen canvas; dial ticks then only redraw the trail and the pins.
@@ -351,7 +553,7 @@
     c.beginPath(); gp(moving ? landLo : land); c.fillStyle = "#efe3c6"; c.fill();
     c.lineWidth = 0.7; c.strokeStyle = "#b99d70"; c.stroke();
     if (!moving) { c.beginPath(); gp(borders); c.lineWidth = 0.5; c.strokeStyle = "rgba(140,110,70,.35)"; c.stroke(); }
-    drawDots(c, Vw.P, Vw.labels, V, R, cx, cy);
+    drawDots(c, Vw.P, Vw.labels, V, R, cx, cy, 1, HQ.ex && HQ.ex.layers.blocks ? 0.4 : 1);
     var sh = c.createRadialGradient(cx - R * 0.4, cy - R * 0.45, R * 0.1, cx, cy, R * 1.02);
     sh.addColorStop(0, "rgba(255,255,255,.10)"); sh.addColorStop(0.55, "rgba(255,255,255,0)"); sh.addColorStop(1, "rgba(5,10,35,.42)");
     c.beginPath(); gp(sphere); c.fillStyle = sh; c.fill();
@@ -362,10 +564,10 @@
     var c = ctx, R = R0 * zoom, cx = W / 2, cy = H / 2 + 6, V = view(), Vw = HQ.view, st = HQ.state;
     projection.rotate(rot).scale(R).translate([cx, cy]);
     var bs = baseState, drg = G.isDragging() || !!fly;
-    if (!bs || bs.r0 !== rot[0] || bs.r1 !== rot[1] || bs.R !== R || bs.W !== W || bs.H !== H || bs.P !== Vw.P || bs.labels !== Vw.labels || bs.drg !== drg) {
+    if (!bs || bs.r0 !== rot[0] || bs.r1 !== rot[1] || bs.R !== R || bs.W !== W || bs.H !== H || bs.P !== Vw.P || bs.labels !== Vw.labels || bs.drg !== drg || bs.fade !== HQ.ex.layers.blocks) {
       var tb = performance.now();
       drawBase(bctx, R, cx, cy, V, Vw, drg);
-      baseState = { r0: rot[0], r1: rot[1], R: R, W: W, H: H, P: Vw.P, labels: Vw.labels, drg: drg };
+      baseState = { r0: rot[0], r1: rot[1], R: R, W: W, H: H, P: Vw.P, labels: Vw.labels, drg: drg, fade: HQ.ex.layers.blocks };
       G.stats.baseDraws++; G.stats.lastBaseMs = performance.now() - tb;
     }
     c.setTransform(1, 0, 0, 1, 0, 0);
@@ -374,6 +576,12 @@
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
     hits = [];
 
+    var ex = HQ.ex, L = ex.layers;
+    if (L.bowl) drawBowl(c, V, R, cx, cy);
+    if (Vw.worst) drawWorstCircle(c, Vw.worst);
+    if (hover && hover.kind === "vote" && Vw.vote) drawVoteRopes(c, Vw.vote);
+    if (L.ropes) hits = hits.concat(drawRopes(c, V, R, cx, cy));
+    if (L.blocks) hits = hits.concat(drawTowers(c, V, R, cx, cy));
     hits = hits.concat(drawTrail(c, projection, path, V, R, cx, cy));
 
     var put = function (x) { var p = proj(x, V, R, cx, cy); return p.vis ? p : null; };
@@ -405,9 +613,10 @@
       var pv = put(Vw.vote);
       if (pv) {
         ballot(c, pv.x, pv.y);
-        hits.push({ x: pv.x, y: pv.y, r: 9, html: function () {
+        hits.push({ x: pv.x, y: pv.y, r: 9, kind: "vote", html: function () {
           return "<b>One country, one vote</b><br>The fair point of " + (FAIR.capitals || []).length + " capitals, each counted once (p = " + HQ.state.p + ").<br>" + HQ.ll(Vw.vote) +
-            "<br>" + HQ.fmt(S.km(Vw.vote, Vw.hq)) + " km from one person, one vote";
+            "<br>" + HQ.fmt(S.km(Vw.vote, Vw.hq)) + " km from one person, one vote" +
+            '<br><span class="muted">purple ropes: one per capital, all equally strong</span>';
         } });
         labels.push([pv.x + 12, pv.y, "one country, one vote", "#b05fd0", pv.x]);
       }
@@ -423,14 +632,18 @@
         labels.push([pw.x + 13, pw.y, "worst-off " + (Vw.worst.q === 0.999 ? "99.9" : "99") + "%", "#e34948", pw.x]);
       }
     }
+    if (ex.probe) drawProbe(c, V, R, cx, cy, put, labels);
     if (Vw.hq) {
       var ph = put(Vw.hq);
-      if (ph) {
+      if (ph && ex.probe) {
+        c.globalAlpha = 0.45; pin(c, ph.x, ph.y, "#4b92db", 0.8); c.globalAlpha = 1;
+      } else if (ph) {
         pin(c, ph.x, ph.y, "#4b92db");
-        hits.push({ x: ph.x, y: ph.y - 21, r: 12, html: function () {
+        hits.push({ x: ph.x, y: ph.y - 21, r: 12, pin: true, html: function () {
           var T = HQ.nearestTown(Vw.hq);
           return "<b>The fair HQ, " + HQ.yearLabel(st.year) + "</b><br>p = " + st.p + (Vw.M !== "all" ? ", " + (Vw.M === "urban" ? "city folk" : "country folk") + " only" : "") +
-            "<br>" + HQ.ll(Vw.hq) + (T ? "<br>near " + HQ.esc(T.name) + ", " + HQ.esc(T.country) : "");
+            "<br>" + HQ.ll(Vw.hq) + (T ? "<br>near " + HQ.esc(T.name) + ", " + HQ.esc(T.country) : "") +
+            '<br><span class="muted">drag the pin to test another spot</span>';
         } });
         labels.push([ph.x + 14, ph.y - 21, "fair HQ" + (st.p !== 1 ? " · p = " + st.p : ""), null, ph.x]);
       }
