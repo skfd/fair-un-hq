@@ -2,13 +2,16 @@
 
 The code is MIT (see `LICENSE`). The generated data under `web/data/` is not code. It is
 adapted from the sources below and is released under
-[Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0/) (CC BY 4.0).
+[Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0/) (CC BY 4.0),
+except `blurbs.js`, which is
+[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) like the Wikipedia text it holds.
 Credit the upstream sources as well as this project when you reuse it.
 
 Changes made: every population grid was summed onto a 0.5° grid, log-quantised to 16 bits and
 re-encoded as base64. The urban share was quantised to 8 bits. The towns were filtered to
-GeoNames' `cities15000` and the capitals to the 193 UN member states. `reference.js` and
-`checks.md` are results computed from these grids.
+GeoNames' `cities5000` and the capitals to the 193 UN member states. `reference.js` and
+`checks.md` are results computed from these grids. The sentences in `blurbs.js` are the first of
+each town's article, with bracketed asides and sometimes a closing ", located…" clause removed.
 
 Everything under `web/vendor/` keeps its own licence: see `web/vendor/LICENSES.md`.
 
@@ -19,8 +22,9 @@ Everything under `web/vendor/` keeps its own licence: see `web/vendor/LICENSES.m
 | `series-hyde.js` | HYDE 3.3 | CC BY 4.0 |
 | `series-isimip-hist.js` | ISIMIP3a histsoc population | CC0 1.0 |
 | `series-ghsl.js` | GHSL GHS-POP R2023A | CC BY 4.0 (Commission reuse decision 2011/833/EU) |
-| `series-ssp1.js`, `series-ssp3.js`, `series-ssp5.js` | ISIMIP3b SSP population | CC0 1.0 |
+| `series-ssp3.js` | ISIMIP3b SSP3 population | CC0 1.0 |
 | `towns.js`, `capitals.js` | GeoNames | CC BY 4.0 |
+| `blurbs.js` | English Wikipedia, matched through Wikidata | CC BY-SA 4.0 |
 | `cells.js`, `reference.js`, `checks.md` | all of the population series above | as above |
 
 - **HYDE 3.3.** Klein Goldewijk, C.G.M. (Kees), Utrecht University (2023): *History Database
@@ -37,3 +41,6 @@ Everything under `web/vendor/` keeps its own licence: see `web/vendor/LICENSES.m
   (doi:[10.5065/D60Z721H](https://doi.org/10.5065/D60Z721H)) and Gao
   (doi:[10.7927/q7z9-9r69](https://doi.org/10.7927/q7z9-9r69)).
 - **GeoNames.** "Contains data from GeoNames (www.geonames.org), licensed under CC BY 4.0."
+- **Wikipedia.** Each sentence is credited on the page by a link to its article, where the
+  authors are listed in the page history. Wikidata (CC0) only supplied the match from GeoNames
+  id to article.

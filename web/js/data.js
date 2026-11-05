@@ -13,8 +13,8 @@
   function u16(b64) { var b = bytes(b64); return new Uint16Array(b.buffer, b.byteOffset, b.byteLength >> 1); }
   function f32(b64) { var b = bytes(b64); return new Float32Array(b.buffer, b.byteOffset, b.byteLength >> 2); }
 
-  var SERIES = ["hyde", "isimip-hist", "ghsl", "ssp1", "ssp3", "ssp5"];
-  var BRANCHES = ["ssp1", "ssp3", "ssp5"];
+  var SERIES = ["hyde", "isimip-hist", "ghsl", "ssp3"];
+  var BRANCHES = ["ssp3"];
 
   // Everything derived once at load: cell ids, their xyz, and the frame index.
   function build() {
@@ -39,7 +39,7 @@
         D.byKey[fr.key] = fr;
       });
     });
-    // Chronological order per lineage; prev links the trail (ssp*/2035 -> ghsl/2030).
+    // Chronological order per lineage; prev links the trail (ssp3/2035 -> ghsl/2030).
     D.frames.sort(function (a, b) { return a.year - b.year || SERIES.indexOf(a.sid) - SERIES.indexOf(b.sid); });
     var trunk = D.frames.filter(function (f) { return !f.branch; });
     trunk.forEach(function (f, i) { f.prev = trunk[i - 1] || null; });

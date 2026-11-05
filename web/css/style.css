@@ -11,9 +11,7 @@
   --rule: #e2d7bf;
   --hq: #4b92db;          /* the HQ pin, a friendly blue */
   --hq-ink: #1f5f9e;
-  --ssp1: #199e70;
   --ssp3: #d95926;
-  --ssp5: #9085e9;
   --worst: #e34948;
   --vote: #b05fd0;
   --dots: #ff8a3d;
@@ -145,6 +143,7 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) 372px; gap: 18px; al
 .welcome .town svg { flex: none; }
 .welcome .name { font: 700 26px/1.1 var(--serif); color: var(--ink); margin: 0; }
 .welcome .where { font-size: 13.5px; color: var(--ink-2); margin-top: 2px; }
+.welcome .fact { font-size: 13.5px; color: var(--ink-2); margin-top: 8px; line-height: 1.45; }
 .welcome .blurb { font-family: var(--hand); color: var(--hq-ink); font-size: 13.5px; margin-top: 8px; line-height: 1.5; }
 .welcome .coords { font: 12px var(--sans); color: var(--ink-3); margin-top: 6px; font-variant-numeric: tabular-nums; }
 
@@ -183,6 +182,10 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 .switch input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: left .15s; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
 .switch input:checked { background: var(--vote); }
 .switch input:checked::after { left: 16px; }
+.more { font-size: 12px; color: var(--ink-3); margin-top: 6px; line-height: 1.5; }
+.more a { color: var(--ink-2); white-space: nowrap; }
+.note + .more { margin: 2px 0 6px 86px; }
+.coords a, .welcome .where a { color: inherit; }
 .note { font-size: 12.5px; color: var(--ink-2); margin: 4px 0 2px 86px; line-height: 1.4; min-height: 1em; }
 .note b { color: var(--ink); }
 
@@ -249,12 +252,7 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 #tl text { font-family: var(--sans); }
 .branches { grid-column: 2; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 12.5px; color: #b9b5d6; }
 .branches .lead { margin-right: 4px; }
-.branches button {
-  display: inline-flex; align-items: center; gap: 7px; border: 1px solid rgba(255,255,255,.14); background: transparent;
-  color: #e9e6f5; padding: 5px 12px 5px 9px; border-radius: 999px; font: 600 12.5px var(--sans); cursor: pointer;
-}
-.branches button[aria-pressed="true"] { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.4); }
-.branches button small { font-weight: 400; color: #b9b5d6; }
+.branches a { display: inline-flex; align-items: center; gap: 7px; color: #e9e6f5; font: 600 12.5px var(--sans); }
 
 /* ---- footer ---- */
 footer { margin: 18px 0 8px; font-size: 12px; color: #9c98bb; line-height: 1.6; }

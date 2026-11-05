@@ -142,7 +142,7 @@
     }
     if (drag && !drag.moved) {
       var r = canvas.getBoundingClientRect(), h = hitAt(ev.clientX - r.left, ev.clientY - r.top);
-      if (h && h.year) HQ.setYear(h.year, h.branch || undefined);
+      if (h && h.year) HQ.setYear(h.year);
     }
     var was = drag && drag.moved;
     drag = null;
@@ -279,19 +279,14 @@
   var DASH = { modelled: [0.5, 4.5], observed: [], projected: [7, 5] };
 
   // The trail of the p=1 HQ. Returns hit targets for the nodes and seams.
-  function drawTrail(c, pr, gpath, V, R, cx, cy, opts) {
-    var st = HQ.state, D = HQ.D, T = HQ.trail, out = [], fork = HQ.FORK;
-    var lin = function (f) { return f.branch || "trunk"; };
+  function drawTrail(c, pr, gpath, V, R, cx, cy) {
+    var st = HQ.state, D = HQ.D, T = HQ.trail, out = [];
     var colOf = function (f) { return f.branch ? HQ.BRANCH[f.branch].color : "#fff1cf"; };
-    var selBranch = st.year > fork ? st.branch : null;
     c.lineCap = "round"; c.lineJoin = "round";
     var segs = [];
     D.frames.forEach(function (f) {
       if (!f.prev || !T[f.key] || !T[f.prev.key]) return;
-      if (opts && opts.onlyBranch && f.branch && f.branch !== opts.onlyBranch) return;
-      var past = f.year <= st.year && (!f.branch || f.branch === st.branch);
-      var alpha = past ? 1 : f.branch && f.branch !== st.branch ? 0.38 : 0.5;
-      segs.push({ f: f, a: T[f.prev.key].x, b: T[f.key].x, alpha: alpha, col: colOf(f), dash: f.seam ? [1.5, 3.5] : DASH[f.conf] || [] });
+      segs.push({ f: f, a: T[f.prev.key].x, b: T[f.key].x, alpha: f.year <= st.year ? 1 : 0.5, col: colOf(f), dash: f.seam ? [1.5, 3.5] : DASH[f.conf] || [] });
     });
     // halo first, then the line, so crossings stay readable
     [0, 1].forEach(function (pass) {
@@ -311,15 +306,13 @@
     D.frames.forEach(function (f) {
       var t = T[f.key];
       if (!t) return;
-      if (opts && opts.onlyBranch && f.branch && f.branch !== opts.onlyBranch) return;
       var p = proj(t.x, V, R, cx, cy);
       if (!p.vis) return;
-      var past = f.year <= st.year && (!f.branch || f.branch === st.branch);
-      c.globalAlpha = past ? 1 : 0.55;
+      c.globalAlpha = f.year <= st.year ? 1 : 0.55;
       c.beginPath(); c.arc(p.x, p.y, 2.6, 0, 2 * Math.PI);
       c.fillStyle = colOf(f); c.fill();
       c.lineWidth = 1; c.strokeStyle = "rgba(8,12,30,.8)"; c.stroke();
-      out.push({ x: p.x, y: p.y, r: 4, year: f.year, branch: f.branch, html: function () { return nodeTip(f); } });
+      out.push({ x: p.x, y: p.y, r: 4, year: f.year, html: function () { return nodeTip(f); } });
     });
     c.globalAlpha = 1;
     // seams
@@ -588,18 +581,6 @@
 
     var put = function (x) { var p = proj(x, V, R, cx, cy); return p.vis ? p : null; };
     var labels = [];
-    // ghost pins: the other futures, same year
-    if (st.year > HQ.FORK) {
-      ["ssp1", "ssp3", "ssp5"].forEach(function (b) {
-        if (b === st.branch) return;
-        var t = HQ.trail[b + "/" + st.year], p = t && put(t.x);
-        if (!p) return;
-        pin(c, p.x, p.y, HQ.BRANCH[b].color, 0.62);
-        var f = HQ.D.byKey[b + "/" + st.year];
-        hits.push({ x: p.x, y: p.y - 13, r: 8, year: st.year, branch: b, html: function () { return nodeTip(f) + "<br>(a different future: p = 1, everyone)"; } });
-        labels.push([p.x + 9, p.y - 14, HQ.BRANCH[b].code, HQ.BRANCH[b].color, p.x]);
-      });
-    }
     if (Vw.offices) Vw.offices.forEach(function (x, i) {
       var p = put(x); if (!p) return;
       c.beginPath(); c.arc(p.x, p.y, 10, 0, 2 * Math.PI); c.fillStyle = CLUSTER[i]; c.fill();
@@ -674,7 +655,7 @@
     var sh = c.createRadialGradient(cx - R * 0.4, cy - R * 0.45, R * 0.1, cx, cy, R * 1.02);
     sh.addColorStop(0, "rgba(255,255,255,.10)"); sh.addColorStop(0.55, "rgba(255,255,255,0)"); sh.addColorStop(1, "rgba(5,10,35,.42)");
     c.beginPath(); gp(sphere); c.fillStyle = sh; c.fill();
-    drawTrail(c, pr, gp, V, R, cx, cy, { onlyBranch: HQ.state.branch });
+    drawTrail(c, pr, gp, V, R, cx, cy);
     var p = HQ.view.hq && proj(HQ.view.hq, V, R, cx, cy);
     if (p && p.vis) pin(c, p.x, p.y, "#4b92db", 1.3);
   };

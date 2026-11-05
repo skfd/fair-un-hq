@@ -25,7 +25,7 @@ aligned to it.
 
 ```js
 FAIR.addSeries({
-  id: "ghsl",                  // hyde | isimip-hist | ghsl | ssp1 | ssp3 | ssp5
+  id: "ghsl",                  // hyde | isimip-hist | ghsl | ssp3
   label: "GHSL GHS-POP R2023A",
   source: "EC JRC, Global Human Settlement Layer",
   url: "https://ghsl.jrc.ec.europa.eu/",
@@ -48,9 +48,8 @@ FAIR.addSeries({
     dwellers at all and `urban` is `null`.
   - `isimip-hist`: 1850–1970 every 5 years, `modelled` (a HYDE-based reconstruction).
   - `ghsl`: 1975–2020 `observed`, 2025 and 2030 `projected`. This is the backbone.
-  - `ssp1`, `ssp3`, `ssp5`: 2035–2100 every 5 years, `projected`. The trail forks after
-    2030.
-- **Seams** at 1850 (`hyde` → `isimip-hist`), 1975 (`isimip-hist` → `ghsl`) and 2030 (`ghsl` → each SSP) are drawn as
+  - `ssp3`: 2035–2100 every 5 years, `projected`.
+- **Seams** at 1850 (`hyde` → `isimip-hist`), 1975 (`isimip-hist` → `ghsl`) and 2030 (`ghsl` → `ssp3`) are drawn as
   seams, not smoothed over.
 
 ## `data/reference.js` (Python truth, for testing the JS port and for warm starts)
@@ -79,6 +78,24 @@ FAIR.towns = { name: [...], cc: [...], lat: Float32 b64, lon: Float32 b64, pop: 
 FAIR.countries = { "IN": "India", ... };
 FAIR.capitals = [ { cc: "IN", country: "India", city: "New Delhi", lat, lon }, ... ];  // 193 UN member states
 ```
+
+## `data/blurbs.js` (from `scripts/build_blurbs.py`)
+
+```js
+FAIR.blurbs = {
+  n: 69943,          // towns in towns.js this was built against
+  i: [...],          // indices into FAIR.towns, one per entry
+  text: [...],       // the sentence, "" where none reads well
+  title: [...],      // the Wikipedia article, "" where it equals the town's name
+  sec: [[...], ...], // its History, Geography and Transport section anchors, "" where absent
+  countries: { "IN": "India", "GE": "Georgia (country)", ... },   // ISO code -> article
+};
+```
+
+It covers only the towns the new-capital card can name, which `scripts/build_landings.js` works
+out by sweeping every frame, weighting and dial stop. The page ignores it if `n` does not match.
+Rebuild both whenever `towns.js` or the series change. It is CC BY-SA 4.0, unlike the rest of
+`data/`.
 
 ## `data/regions.js` (from `scripts/build_regions.js`)
 

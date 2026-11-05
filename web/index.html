@@ -59,7 +59,7 @@
       <svg id="playIcon" width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><path d="M6 3l13 8-13 8z" fill="#2b1b00"/></svg>
     </button>
     <svg id="tl" tabindex="0" role="slider" aria-label="Year" aria-valuemin="-10000" aria-valuemax="2100"></svg>
-    <div class="branches" id="branches"><span class="lead">After 2030, the future forks. Follow:</span></div>
+    <div class="branches"><span class="lead">After 2030, one possible future:</span><a href="https://en.wikipedia.org/wiki/Shared_Socioeconomic_Pathways#SSP3:_Regional_rivalry_(A_Rocky_Road)" target="_blank" rel="noopener"><span class="swatch" style="background:var(--ssp3)"></span>SSP3 Regional rivalry</a></div>
   </section>
     </div>
 
@@ -73,6 +73,8 @@
             <div class="where" id="townWhere"></div>
           </div>
         </div>
+        <div class="fact" id="townFact" hidden></div>
+        <div class="more" id="townLinks"></div>
         <div class="blurb" id="townBlurb"></div>
         <div class="coords" id="townCoords"></div>
       </article>
@@ -85,6 +87,7 @@
         </div>
         <div class="dial-ends"><span>least total travel</span><span>the far-away get a veto</span></div>
         <div class="caption" id="caption"></div>
+        <div class="more"><a href="https://en.wikipedia.org/wiki/Generalized_mean" target="_blank" rel="noopener">Power means</a> · <a href="https://en.wikipedia.org/wiki/Geometric_median" target="_blank" rel="noopener">Geometric median</a> · <a href="https://en.wikipedia.org/wiki/Center_of_population#Geometric_median" target="_blank" rel="noopener">Centre of population</a> · <a href="https://en.wikipedia.org/wiki/Great-circle_distance" target="_blank" rel="noopener">Great-circle distance</a></div>
       </article>
 
       <article class="card">
@@ -98,11 +101,13 @@
           </div>
         </div>
         <div class="note" id="noteWorst"></div>
+        <div class="more"><a href="https://en.wikipedia.org/wiki/Minimax#Maximin_in_philosophy" target="_blank" rel="noopener">Maximin</a> · <a href="https://en.wikipedia.org/wiki/Smallest-circle_problem" target="_blank" rel="noopener">Smallest-circle problem</a></div>
         <div class="opt">
           <span>Count by</span>
           <label class="switch"><input type="checkbox" id="voteToggle" checked> one country, one vote</label>
         </div>
         <div class="note" id="noteVote"></div>
+        <div class="more"><a href="https://en.wikipedia.org/wiki/One_man,_one_vote" target="_blank" rel="noopener">One person, one vote</a> · <a href="https://en.wikipedia.org/wiki/Member_states_of_the_United_Nations#Current_members" target="_blank" rel="noopener">The member states</a></div>
         <div class="opt">
           <span>Offices</span>
           <div class="seg" id="segK" role="group" aria-label="Number of HQs">
@@ -113,6 +118,7 @@
           </div>
         </div>
         <div class="note" id="noteK"></div>
+        <div class="more"><a href="https://en.wikipedia.org/wiki/K-medians_clustering" target="_blank" rel="noopener">k-medians</a> · <a href="https://en.wikipedia.org/wiki/Voronoi_diagram" target="_blank" rel="noopener">Voronoi diagram</a></div>
         <div class="opt">
           <span>Weight by</span>
           <div class="seg" id="segMode" role="group" aria-label="Weight by">
@@ -122,6 +128,7 @@
           </div>
         </div>
         <div class="note" id="noteMode"></div>
+        <div class="more"><a href="https://en.wikipedia.org/wiki/Urbanization" target="_blank" rel="noopener">Urbanization</a> · <a href="https://en.wikipedia.org/wiki/Rural_area" target="_blank" rel="noopener">Rural area</a></div>
       </article>
 
       <article class="card">
@@ -129,6 +136,7 @@
         <p class="stat-head" id="driftHead"></p>
         <p id="driftBody"></p>
         <div id="driftWarn"></div>
+        <div class="more"><a href="https://en.wikipedia.org/wiki/Estimates_of_historical_world_population" target="_blank" rel="noopener">Historical world population</a> · <a href="https://en.wikipedia.org/wiki/Center_of_population#World" target="_blank" rel="noopener">Centre of world population</a></div>
       </article>
 
       <article class="card why">
@@ -145,6 +153,7 @@
         </div>
         <button class="btn ghost-ink" id="whyStory">Show me, step by step</button>
         <p class="why-hint">Or grab the blue pin on the globe and drag it anywhere.</p>
+        <div class="more"><a href="https://en.wikipedia.org/wiki/Varignon_frame" target="_blank" rel="noopener">Varignon frame</a> · <a href="https://en.wikipedia.org/wiki/Mechanical_equilibrium" target="_blank" rel="noopener">Mechanical equilibrium</a> · <a href="https://en.wikipedia.org/wiki/United_Nations_geoscheme" target="_blank" rel="noopener">UN regions</a></div>
       </article>
 
       <div class="actions">
@@ -159,12 +168,13 @@
     <div><b>Data.</b>
       Population 1975–2030: <a href="https://doi.org/10.2905/2FF68A52-5B5B-4A22-8F40-C41DA8332CFE">GHSL GHS-POP R2023A</a>, European Commission Joint Research Centre, CC BY 4.0.
       10,000 BC–1840: <a href="https://doi.org/10.24416/UU01-67UHB4">HYDE 3.3</a>, Kees Klein Goldewijk, Utrecht University / PBL, CC BY 4.0 (fetched from a <a href="https://www.kaggle.com/datasets/ilyenkov/hyde-3-3">Kaggle mirror</a>).
-      1850–1970 and the 2035–2100 scenarios: <a href="https://www.isimip.org/">ISIMIP</a> (ISIMIP3a histsoc, a HYDE-based reconstruction; ISIMIP3b SSP1, SSP3, SSP5), CC0.
+      1850–1970 and the 2035–2100 scenarios: <a href="https://www.isimip.org/">ISIMIP</a> (ISIMIP3a histsoc, a HYDE-based reconstruction; ISIMIP3b SSP3), CC0.
       Towns and capitals: <a href="https://www.geonames.org/">GeoNames</a>, CC BY 4.0.
+      Town facts: the opening sentence of each town's <a href="https://en.wikipedia.org/">Wikipedia</a> article, shortened, CC BY-SA 4.0.
       Coastlines: <a href="https://www.naturalearthdata.com/">Natural Earth</a> via <a href="https://github.com/topojson/world-atlas">world-atlas</a>.
       Drawn with <a href="https://d3js.org/">d3</a> and topojson-client.
     </div>
-    <div class="fine">The population grids were regridded to 0.5° and quantised. This page's data is <a href="https://github.com/skfd/fair-un-hq/blob/main/LICENSE-DATA.md">CC BY 4.0</a> and its code is <a href="https://github.com/skfd/fair-un-hq/blob/main/LICENSE">MIT</a>. Library licences: <a href="vendor/LICENSES.md">vendor/LICENSES.md</a>. Source: <a href="https://github.com/skfd/fair-un-hq">github.com/skfd/fair-un-hq</a>.</div>
+    <div class="fine">The population grids were regridded to 0.5° and quantised. This page's data is <a href="https://github.com/skfd/fair-un-hq/blob/main/LICENSE-DATA.md">CC BY 4.0</a> (the town facts CC BY-SA 4.0) and its code is <a href="https://github.com/skfd/fair-un-hq/blob/main/LICENSE">MIT</a>. Library licences: <a href="vendor/LICENSES.md">vendor/LICENSES.md</a>. Source: <a href="https://github.com/skfd/fair-un-hq">github.com/skfd/fair-un-hq</a>.</div>
     <div class="fine">The story starts in 10,000 BC because that is where HYDE starts. Before 1850 the steps are HYDE’s own (a thousand years, then a hundred, then ten) and the timeline squeezes them into its left end. Nobody lived in towns in 10,000 BC, so that year has no city/country split. Distances are great-circle; the Earth is a ball of radius 6,371 km. Everything before 1975 is modelled, 2025 onward is projected, and the joins between sources are drawn as seams rather than smoothed over.</div>
   </footer>
 </div>
@@ -187,11 +197,10 @@
 <script src="data/series-hyde.js"></script>
 <script src="data/series-isimip-hist.js"></script>
 <script src="data/series-ghsl.js"></script>
-<script src="data/series-ssp1.js"></script>
 <script src="data/series-ssp3.js"></script>
-<script src="data/series-ssp5.js"></script>
 <script src="data/reference.js"></script>
 <script src="data/towns.js"></script>
+<script src="data/blurbs.js"></script>
 <script src="data/capitals.js"></script>
 <script src="data/regions.js"></script>
 <script src="js/fallback.js"></script>

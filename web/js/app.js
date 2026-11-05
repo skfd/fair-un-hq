@@ -12,18 +12,16 @@
   HQ.towns = FD.towns();
   HQ.land = topojson.feature(FAIR.land, FAIR.land.objects.land);
   HQ.BRANCH = {
-    ssp1: { code: "SSP1", name: "Sustainability", short: "the green road", color: "#199e70" },
     ssp3: { code: "SSP3", name: "Regional rivalry", short: "the rocky road", color: "#d95926" },
-    ssp5: { code: "SSP5", name: "Fossil-fuelled development", short: "the fast lane", color: "#9085e9" },
   };
   HQ.CONF_LABEL = { modelled: "modelled", observed: "observed", projected: "projected" };
   HQ.SERIES_LABEL = {
     hyde: "HYDE 3.3", "isimip-hist": "ISIMIP3a histsoc (HYDE-based)", ghsl: "GHSL GHS-POP R2023A",
-    ssp1: "ISIMIP3b SSP1", ssp3: "ISIMIP3b SSP3", ssp5: "ISIMIP3b SSP5",
+    ssp3: "ISIMIP3b SSP3",
   };
   if (FAIR.isMock) Object.keys(HQ.SERIES_LABEL).forEach(function (k) { HQ.SERIES_LABEL[k] += " (mock)"; });
-  var FORK = D.trunk.length ? D.trunk[D.trunk.length - 1].year : 2030;
-  HQ.FORK = FORK;
+  var TRUNK_END = D.trunk.length ? D.trunk[D.trunk.length - 1].year : 2030;
+  HQ.TRUNK_END = TRUNK_END;
   var years = [];
   D.frames.forEach(function (f) { if (years.indexOf(f.year) < 0) years.push(f.year); });
   years.sort(function (a, b) { return a - b; });
@@ -45,13 +43,10 @@
   var trunkByYear = {};
   D.trunk.forEach(function (f) { trunkByYear[f.year] = f; });
 
-  HQ.frameAt = function (year, branch) {
-    if (trunkByYear[year]) return trunkByYear[year];
-    return D.byKey[branch + "/" + year] || D.byKey["ssp1/" + year] || D.byKey["ssp3/" + year] || D.byKey["ssp5/" + year] || null;
-  };
+  HQ.frameAt = function (year) { return trunkByYear[year] || D.byKey["ssp3/" + year] || null; };
 
   var state = HQ.state = {
-    year: years.indexOf(2020) >= 0 ? 2020 : years[years.length - 1], branch: "ssp1",
+    year: years.indexOf(2020) >= 0 ? 2020 : years[years.length - 1],
     p: 1, worst: 0, vote: true, k: 1, mode: "all", playing: false,
   };
   if (FAIR.isMock) $("mockNote").hidden = false;
@@ -105,8 +100,7 @@
   // every frame in the browser and replaces them (they agree to well under a metre).
   if (ref) D.frames.forEach(function (f) { if (ref[f.key]) trail[f.key] = { x: S.toXYZ(ref[f.key].median[0], ref[f.key].median[1]), src: "ref" }; });
   function* chainGen() {
-    var order = D.trunk.slice();
-    ["ssp1", "ssp3", "ssp5"].forEach(function (b) { order = order.concat(D.frames.filter(function (f) { return f.sid === b; })); });
+    var order = D.trunk.concat(D.frames.filter(function (f) { return f.branch; }));
     for (var i = 0; i < order.length; i++) {
       var fr = order[i];
       if (trail[fr.key] && stats[fr.key]) continue;
@@ -163,7 +157,7 @@
   var lastFrameKey = null, lastTlKey = null;
   function update(opts) {
     opts = opts || {};
-    var F = HQ.frameAt(state.year, state.branch);
+    var F = HQ.frameAt(state.year);
     if (!F) return;
     var M = state.mode !== "all" && !F.hasUrban ? "all" : state.mode;
     var frameChanged = !V.F || V.F.key !== F.key || V.M !== M;
@@ -231,8 +225,7 @@
       if (!opts.noFly) HQ.Globe.flyTo(V.hq || p1Base(), state.playing ? 600 : 900, false, state.playing ? 12 : 0);
     }
     if (opts.dial) { caption(); throttledCards(); } else refreshCards();
-    var tlKey = state.year + state.branch;
-    if (frameChanged || tlKey !== lastTlKey) { lastTlKey = tlKey; HQ.Timeline.update(); }
+    if (frameChanged || state.year !== lastTlKey) { lastTlKey = state.year; HQ.Timeline.update(); }
     HQ.Globe.invalidate();
   }
   HQ.update = update;
@@ -361,7 +354,7 @@
     if (best < 0) return null;
     var tx = [X[3 * best], X[3 * best + 1], X[3 * best + 2]];
     return {
-      name: T.name[best], cc: T.cc[best], country: (FAIR.countries || {})[T.cc[best]] || T.cc[best],
+      i: best, name: T.name[best], cc: T.cc[best], country: (FAIR.countries || {})[T.cc[best]] || T.cc[best],
       pop: T.pop[best], x: tx, km: S.km(tx, x), dir: bearing(tx, x),
     };
   };
@@ -420,11 +413,45 @@
       '</svg>';
   };
 
+  // Links out, for text that changes with the frame. The fixed ones are in index.html.
+  function out(url, text) { return '<a href="' + url + '" target="_blank" rel="noopener">' + text + "</a>"; }
+  function wiki(title, section, text) {
+    return out("https://en.wikipedia.org/wiki/" + encodeURIComponent(title.replace(/ /g, "_")) + (section ? "#" + encodeURIComponent(section) : ""), text);
+  }
+  function maps(x, text) {
+    var a = S.toLatLon(x);
+    return out("https://www.google.com/maps/search/?api=1&query=" + a[0].toFixed(5) + "%2C" + a[1].toFixed(5), text);
+  }
+
+  // What Wikipedia has on the town. Without matching towns (the mock) the indices mean nothing.
+  var factAt = null;
+  if (FAIR.blurbs && HQ.towns && FAIR.blurbs.n === HQ.towns.n) {
+    factAt = new Int32Array(HQ.towns.n).fill(-1);
+    FAIR.blurbs.i.forEach(function (town, k) { factAt[town] = k; });
+  }
+  var SECTION_NAMES = ["History", "Geography", "Getting there"];
+  function showFact(T, sea) {
+    var B = FAIR.blurbs, k = !sea && factAt ? factAt[T.i] : -1, links = [];
+    $("townFact").textContent = k < 0 ? "" : B.text[k];
+    $("townFact").hidden = k < 0 || !B.text[k];
+    if (k >= 0) {
+      var title = B.title[k] || T.name;
+      links.push(wiki(title, "", "Wikipedia"));
+      B.sec[k].forEach(function (anchor, j) { if (anchor) links.push(wiki(title, anchor, SECTION_NAMES[j])); });
+    }
+    links.push(maps(T.x, "Google Maps"));
+    $("townLinks").innerHTML = links.join(" · ");
+  }
+  function countryLink(T) {
+    var title = FAIR.blurbs && FAIR.blurbs.countries[T.cc];
+    return title ? wiki(title, "", esc(T.country)) : esc(T.country);
+  }
+
   var lastTownKey = null;
   function welcome(x) {
     var T = HQ.nearestTown(x), sea = HQ.atSea(x, dialHeld);
     var key = (T ? T.name : "") + sea + Math.round(T ? T.km : 0);
-    $("townCoords").textContent = "The exact spot: " + ll(x);
+    $("townCoords").innerHTML = "The exact spot: " + maps(x, ll(x));
     if (key === lastTownKey) return;
     lastTownKey = key;
     if (!T) { $("townName").textContent = "Somewhere fair"; return; }
@@ -432,13 +459,15 @@
     if (sea) {
       $("townIcon").innerHTML = HQ.bargeSVG(64);
       $("townName").textContent = "The HQ barge";
-      $("townWhere").innerHTML = "Moored at sea, " + fmt(T.km) + " km " + T.dir + " of <b>" + esc(T.name) + "</b>, " + esc(T.country);
+      $("townWhere").innerHTML = "Moored at sea, " + fmt(T.km) + " km " + T.dir + " of <b>" + esc(T.name) + "</b>, " + countryLink(T);
+      showFact(T, true);
       $("townBlurb").textContent = SEA_BLURBS[h % SEA_BLURBS.length];
     } else {
       $("townIcon").innerHTML = townSVG;
       $("townName").textContent = T.name;
-      $("townWhere").innerHTML = esc(T.country) + (T.pop ? " · pop. " + fmt(T.pop) : "") +
+      $("townWhere").innerHTML = countryLink(T) + (T.pop ? " · pop. " + fmt(T.pop) : "") +
         "<br>" + (T.km < 1 ? "The exact spot is right in town." : "The exact spot is " + fmt(T.km, T.km < 10 ? 1 : 0) + " km " + T.dir + " of town.");
+      showFact(T, false);
       var L = T.pop > 2e6 ? BIG_BLURBS : BLURBS;
       $("townBlurb").textContent = L[h % L.length];
     }
@@ -523,7 +552,7 @@
       '<div class="row trail-styles">trail:<span>' + dash("0.5 4") + "modelled</span><span>" + dash("") + "observed</span><span>" + dash("6 4") + "projected</span></div>",
       '<div class="row"><svg width="30" height="12"><circle cx="15" cy="6" r="4.5" fill="#0b1128" stroke="#fff" stroke-width="1.4"/><path d="M12.5 6h5" stroke="#fff" stroke-width="1.4"/></svg>seam between data sources</div>',
     ];
-    if (state.year > FORK) rows.push('<div class="row">' + ["ssp1", "ssp3", "ssp5"].map(function (b) { return '<span class="swatch" style="background:' + HQ.BRANCH[b].color + '"></span>' + HQ.BRANCH[b].code; }).join(" &nbsp;") + "</div>");
+    if (state.year > TRUNK_END) rows.push('<div class="row"><span class="swatch" style="background:' + HQ.BRANCH.ssp3.color + '"></span>' + HQ.BRANCH.ssp3.code + "</div>");
     if (state.worst) rows.push('<div class="row"><svg width="30" height="14"><circle cx="15" cy="7" r="5.5" fill="none" stroke="#fff" stroke-width="3"/><circle cx="15" cy="7" r="5.5" fill="none" stroke="#e34948" stroke-width="3" stroke-dasharray="4.3 4.3"/></svg>worst-off (' + (state.worst === 0.999 ? "99.9" : "99") + "%)</div>");
     if (state.vote) rows.push('<div class="row"><svg width="30" height="14"><rect x="9" y="2" width="12" height="11" rx="2" fill="#b05fd0" stroke="#fff" stroke-width="1.2"/><path d="M12 5h6" stroke="#fff" stroke-width="1.5"/></svg>one country, one vote</div>');
     if (state.k > 1) rows.push('<div class="row"><svg width="30" height="14"><circle cx="15" cy="7" r="6" fill="#3987e5" stroke="#fff" stroke-width="1.2"/></svg>' + state.k + " offices, people coloured by nearest</div>");
@@ -775,7 +804,7 @@
       return "<b>Now put the HQ somewhere else.</b> The pulls stop cancelling: the red arrow is what is left over, the net pull. It points back towards the fair spot.";
     } },
     { layers: { blocks: true, ropes: true, bowl: false }, ropes: "bundled", settle: true, text: function () {
-      return "<b>Let go and it slides home</b>, one step at a time. " + (state.p <= 2 ? "Each step moves to the average of everyone, weighted by 1 / distance (Weiszfeld's method)." : "Each step follows the net pull downhill.") + " This is exactly how the page finds the HQ.";
+      return "<b>Let go and it slides home</b>, one step at a time. " + (state.p <= 2 ? "Each step moves to the average of everyone, weighted by 1 / distance (" + wiki("Geometric median", "Computation", "Weiszfeld's method") + ")." : "Each step follows the net pull " + wiki("Gradient descent", "", "downhill") + ".") + " This is exactly how the page finds the HQ.";
     } },
     { layers: { blocks: true, ropes: true, bowl: true }, ropes: "bundled", text: function () {
       return "<b>At the fair spot every pull is cancelled.</b> The rings show how much longer the average trip gets as the HQ walks away: it sits at the bottom of a bowl. Drag the pin to try any spot yourself.";
@@ -819,13 +848,12 @@
   $("storyClose").addEventListener("click", storyClose);
 
   // ---------------------------------------------------------------- controls
-  HQ.setYear = function (year, branch) {
+  HQ.setYear = function (year) {
     year = Math.max(years[0], Math.min(years[years.length - 1], year));
     if (years.indexOf(year) < 0) year = HQ.nearestYear(year);
-    var changed = year !== state.year || (branch && branch !== state.branch);
+    var changed = year !== state.year;
     state.year = year;
-    if (branch) state.branch = branch;
-    if (changed) { update(); syncBranchButtons(); }
+    if (changed) update();
   };
   function seg(id, key, parse) {
     var el = $(id);
@@ -847,20 +875,6 @@
   $("dial").addEventListener("change", dialLetGo);
   window.addEventListener("pointerup", dialLetGo);
 
-  var bWrap = $("branches");
-  ["ssp1", "ssp3", "ssp5"].forEach(function (b) {
-    if (!FAIR.series || !D.frames.some(function (f) { return f.sid === b; })) return;
-    var bt = document.createElement("button");
-    bt.dataset.b = b;
-    bt.innerHTML = '<span class="swatch" style="background:' + HQ.BRANCH[b].color + '"></span>' + HQ.BRANCH[b].code + " " + HQ.BRANCH[b].name;
-    bt.title = HQ.BRANCH[b].code + ", " + HQ.BRANCH[b].short;
-    bt.addEventListener("click", function () { state.branch = b; syncBranchButtons(); update(); });
-    bWrap.appendChild(bt);
-  });
-  function syncBranchButtons() {
-    Array.prototype.forEach.call(bWrap.querySelectorAll("button"), function (x) { x.setAttribute("aria-pressed", String(x.dataset.b === state.branch)); });
-  }
-  HQ.syncBranchButtons = syncBranchButtons;
 
   // Play: step through the frames; the globe follows the HQ.
   var playTimer = null;
@@ -903,7 +917,6 @@
   // ---------------------------------------------------------------- go
   HQ.Globe.init($("globe"));
   HQ.Timeline.init($("tl"));
-  syncBranchButtons();
   window.addEventListener("resize", function () { HQ.Globe.resize(); HQ.Timeline.update(); });
   update();
   HQ.Globe.jumpTo(V.hq || p1Base());

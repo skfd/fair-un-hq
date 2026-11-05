@@ -59,8 +59,9 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
     to 1700, every 10 to 1840. The timeline gives this era its left 30%.
   - **1850–1970:** ISIMIP3a histsoc, a HYDE-based reconstruction.
   - **1975–2030:** GHSL GHS-POP R2023A, the backbone. 2025 and 2030 are projections.
-  - **2035–2100:** the trail **forks** into ISIMIP3b SSP1, SSP3 and SSP5. ISIMIP has no
-    SSP2.
+  - **2035–2100:** one future, ISIMIP3b SSP3 (regional rivalry). The fork into SSP1, SSP3 and
+    SSP5 was dropped (decided 2026-11-05). `build_data.py` still reads all three, because they
+    share out the urban split for 2025 and 2030.
   - **Seams:** the joins at 1850, 1975 and 2030 are drawn as seams, not smoothed over. Each
     is labelled with how far apart the two sources put the HQ in one shared year. The step
     the trail draws across it, which also carries the years between frames, is on hover.
@@ -70,8 +71,12 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
 - **Data honesty: fade by confidence.** The trail is dotted for modelled years, solid for
   observed and dashed for projected, with the source named on hover.
 - **Silly landings: show the raw point and name the nearest town.** A "welcome to your new
-  capital" card gives the nearest settlement and a short blurb. A point at sea gets a
-  floating HQ barge.
+  capital" card gives the nearest settlement, the first sentence of its Wikipedia article where
+  there is one, and a joke. A point at sea gets a floating HQ barge.
+- **Link out** (2026-11-05). Every town gets Google Maps, and Wikipedia with its History,
+  Geography and Transport sections where the article has them. The exact spot opens in Google
+  Maps. Each card links the Wikipedia articles and sections behind its idea. The real UN stays
+  out of these too.
 - **Extra toys:**
   - **Weight by…** Urban only or rural only. HYDE and ISIMIP carry an urban/rural split
     (HYDE has no town dwellers in 10,000 BC, so that one frame has none). GHSL epochs borrow
@@ -85,8 +90,7 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
 
 ## Still open
 
-- **Wikipedia blurbs** for the nearest-town card. The town names come from GeoNames
-  `cities5000`.
+- **UI refinement.** The links and the one-future timeline are a first pass (2026-11-05).
 
 
 ## Leads (unverified, evaluate before using)
@@ -131,13 +135,16 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
 - The Why here? card and the knot tooltips use exact pulls over every 0.5° cell. The drawn
   ropes and the bowl use the blocks: the HQ solved from the blocks alone lands within
   10–60 km of the real one (245 km in 10,000 BC, where the bowl is flat).
+- Only towns the card can actually name get Wikipedia data. It follows the solved HQ, not the
+  dragged pin, so `scripts/build_landings.js` sweeps every frame, weighting and dial stop.
+  Towns match through their GeoNames id on Wikidata, never by title.
 - HYDE's uneven steps are shipped as they are, not resampled to 5 years. The timeline is
   piecewise linear (10,000 BC–0 AD, 0–1700, 1700–1850, 1850–2100 at 13/9/8/70% of its
   width), and Play runs from 10,000 BC.
 
 ## Running it
 
-Double-click `web/index.html`. The generated `web/data/` (about 28 MB) is committed, so a
+Double-click `web/index.html`. The generated `web/data/` (about 25 MB) is committed, so a
 clone opens as-is. To rebuild it:
 
 ```sh
@@ -149,6 +156,8 @@ sh scripts/fetch_isimip.sh    # ~220 MB, ISIMIP 30 arcmin history + SSP1/3/5
 .venv/Scripts/python scripts/build_data.py    # ~5 min, writes web/data/*.js + checks.md
 .venv/Scripts/python scripts/build_towns.py   # GeoNames towns + UN member capitals
 node scripts/build_regions.js                  # cell -> UN subregion, for the rope web
+node scripts/build_landings.js                 # ~3 min, the towns the card can name
+.venv/Scripts/python scripts/build_blurbs.py  # over an hour, Wikipedia for those towns
 ```
 
 Without `web/data/`, the page falls back to a synthetic mock (`web/mock/`).
@@ -156,8 +165,9 @@ Without `web/data/`, the page falls back to a synthetic mock (`web/mock/`).
 ## Licence
 
 The code is MIT (`LICENSE`). The generated `web/data/` is CC BY 4.0, adapted from HYDE 3.3
-(CC BY 4.0), GHSL (CC BY 4.0), ISIMIP (CC0) and GeoNames (CC BY 4.0). The sources and
-citations are in `LICENSE-DATA.md`. The vendored libraries keep their own licences
+(CC BY 4.0), GHSL (CC BY 4.0), ISIMIP (CC0) and GeoNames (CC BY 4.0), except `blurbs.js`, which
+is CC BY-SA 4.0 like the Wikipedia text it holds. The sources and citations are in
+`LICENSE-DATA.md`. The vendored libraries keep their own licences
 (`web/vendor/LICENSES.md`).
 
 HYDE's labels disagree (see Leads). We follow the DOI's registered metadata, as the formal
@@ -171,7 +181,7 @@ record (decided 2026-11-05).
   - The tug of war: at the fair HQ the exact net pull is ~10⁻¹² (balanced); move off it and
     the net pull points back.
   - The JS solver. It matches the Python reference (`scripts/fair.py`) to under 1 m on all
-    121 frames.
+    frames.
 - **Findings:** the sanity check holds. The trail is smooth and 0.5° matches 0.1° to 0.2 km
   (see `docs/checks.md`).
   - The fair HQ sits in Punjab in 2020.
@@ -194,8 +204,7 @@ record (decided 2026-11-05).
     averages. The Drift card says both.
   - The 1850 seam is clean: HYDE 3.3 and ISIMIP's 1850 put the HQ 6 km apart, with
     totals within 0.2%.
-  - It drifts west through Baluchistan by 2100 (SSP1/SSP5), or to near Abqaiq in Saudi
-    Arabia (SSP3).
+  - By 2100 (SSP3) it drifts west to near Abqaiq in Saudi Arabia.
   - The worst-off (99.9%) point has two real basins, the Levant and the North Pole, and
     flips between them.
 - **Known gaps:**
@@ -204,5 +213,5 @@ record (decided 2026-11-05).
     so the page holds about 60 fps while the pin catches up. A pool would not help much:
     descent steps are sequential. At 2560×1440 without a GPU the drag runs at about 40 fps.
     Accepted for now (2026-11-05).
-  - The page downloads all its data before it draws, about 17 MB gzipped. Accepted for now
+  - The page downloads all its data before it draws, about 14 MB gzipped. Accepted for now
     (2026-11-05).
