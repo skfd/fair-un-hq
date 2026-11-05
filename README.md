@@ -31,9 +31,8 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
   - **Worst-off.** A clipped minimax, kept separate from the dial: minimise the distance
     that covers 99% or 99.9% of people. In 2020 the 99.9% point is near Jordan and the 99%
     point is in Libya.
-  - **Country vs person.** One country, one vote: the median of the member states (where
-    to put each state is still open: capital or its population centroid). Compare it with
-    one person, one vote.
+  - **Country vs person.** One country, one vote: the median of the member states' capitals.
+    Compare it with one person, one vote.
   - **k HQs.** The optimal 2, 3 or 4 offices (spherical k-medians), with the world coloured
     by which office each person is closest to. No comparison with real UN offices.
 - **Show the calculation, not just the answer** (2026-10-31). The reader should be able to
@@ -50,8 +49,9 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
   - **Drag the pin** to test any spot: the ropes and the net pull follow, and letting go
     replays the solver's own steps (Weiszfeld) back home.
   - **Step-by-step story** and an optional **bowl**: rings of extra average trip around the HQ.
-  - The depth-of-humanity card (3D centre of mass) is dropped. The centroid stays only as the
-    solver's starting guess.
+  - Blocks and ropes are on when the page opens (confirmed 2026-11-05).
+  - The depth-of-humanity card (3D centre of mass) is dropped (confirmed 2026-11-05). The
+    centroid stays only as the solver's starting guess.
 - **Time span: 10,000 BC to 2100.** All series use a 0.5° grid, every 5 years from 1850:
   - **10,000 BC–1840:** HYDE 3.3, at HYDE's own steps: every 1000 years to 0 AD, every 100
     to 1700, every 10 to 1840. The timeline gives this era its left 30%.
@@ -59,8 +59,9 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
   - **1975–2030:** GHSL GHS-POP R2023A, the backbone. 2025 and 2030 are projections.
   - **2035–2100:** the trail **forks** into ISIMIP3b SSP1, SSP3 and SSP5. ISIMIP has no
     SSP2.
-  - **Seams:** the joins at 1850, 1975 and 2030 are drawn as seams, with their size in km,
-    not smoothed over.
+  - **Seams:** the joins at 1850, 1975 and 2030 are drawn as seams, not smoothed over. Each
+    is labelled with how far apart the two sources put the HQ in one shared year. The step
+    the trail draws across it, which also carries the years between frames, is on hover.
   - **Where HYDE comes from:** Utrecht's own copy sits behind an Anubis bot wall, so
     `scripts/fetch_hyde.py` uses a Kaggle mirror of it, with the DANS archive of HYDE 3.2.1
     as a fallback.
@@ -81,7 +82,6 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
 
 ## Still open
 
-- **Grid resolution.** 0.5° is assumed. The build checks it against finer GHSL aggregates.
 - **GHS-SMOD for urban/rural** in GHSL epochs, replacing the borrowed ISIMIP share.
 - **The country-vote point per state.** v1 uses each UN member state's capital, weighted
   equally. A refinement would use each country's own population median.
@@ -101,8 +101,17 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
   CC BY-NC-SA 4.0, the readme says CC BY 3.0 and Kaggle says CC BY-SA 4.0. The DANS archive
   of HYDE 3.2.1 is CC0.
 - UN World Population Prospects: country-level projections to 2100.
-- "Centre of world population" / "world population centre of gravity" is a known idea with
-  earlier estimates. Look into it for prior art and as a comparison.
+- "Centre of world population": checked 2026-11-05, and no published estimate contradicts
+  ours once the definitions match.
+  - [Arthur 2023](https://arxiv.org/pdf/2307.16728) (a preprint; its year looks like 2020)
+    puts the 3D centroid at 36.6° N, 66.9° E, about 30 km from ours: an independent check.
+  - Its "median", 24.6° N, 72.1° E, is 770 km from ours and is not agreement. Its
+    `valeriepieris` package averages raw lat/lon degrees, so it does not minimise spherical
+    distance. Its point averages 5,219 km per person on our 2020 data, ours 5,135 km.
+  - Grasland & Madelin 2001 use our definition: the China/India/Pakistan/Tajikistan junction,
+    5,200 km on average. Seen via Wikipedia only; read the original before citing it.
+  - [Sauter et al. 2019](https://www.ifo.de/DocDL/cesifo1_wp7557.pdf) (HYDE, 3D): 0.75 R in
+    1820, ours 0.76 R.
 - Weiszfeld's algorithm (geometric median), adapted to the sphere; iteratively reweighted
   versions handle general p.
 
@@ -151,6 +160,9 @@ The code is MIT (`LICENSE`). The generated `web/data/` is CC BY 4.0, adapted fro
 citations are in `LICENSE-DATA.md`. The vendored libraries keep their own licences
 (`web/vendor/LICENSES.md`).
 
+HYDE's labels disagree (see Leads). We follow the DOI's registered metadata, as the formal
+record (decided 2026-11-05).
+
 ## Status
 
 - **Built:**
@@ -183,3 +195,5 @@ citations are in `LICENSE-DATA.md`. The vendored libraries keep their own licenc
   - A dial tick above p=2 takes about 70–110 ms, against a 50 ms target. A Web Worker pool
     would fix that.
   - GHS-SMOD for urban/rural is still pending.
+  - The page downloads all its data before it draws, about 17 MB gzipped. Accepted for now
+    (2026-11-05).
