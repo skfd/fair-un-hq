@@ -61,9 +61,16 @@ FAIR.reference = {
                  depth_km, worst999: [lat, lon], worst999_km, pop },
   // ...one entry per series/year
 };
+FAIR.seams = {
+  "isimip-hist/1850": { year: 1850, km },   // keyed by the frame the trail lands on
+  // ...one entry per seam
+};
 ```
 
 The JS solver must reproduce `median` to within about 1 km.
+
+`FAIR.seams` is how far apart the two sources put the HQ in one shared year, which is the seam's
+size. The step the trail draws across a seam also carries the years between its two frames.
 
 ## `data/towns.js` and `data/capitals.js`
 

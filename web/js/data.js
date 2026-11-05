@@ -47,7 +47,10 @@
       var fs = D.frames.filter(function (f) { return f.sid === b; });
       fs.forEach(function (f, i) { f.prev = fs[i - 1] || trunk[trunk.length - 1] || null; });
     });
-    D.frames.forEach(function (f) { f.seam = !!(f.prev && f.prev.sid !== f.sid); });
+    D.frames.forEach(function (f) {
+      f.seam = !!(f.prev && f.prev.sid !== f.sid);
+      f.gap = f.seam && FAIR.seams && FAIR.seams[f.key] || null;   // same-year disagreement; the mock has none
+    });
     D.trunk = trunk;
     return D;
   }

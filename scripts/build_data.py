@@ -486,6 +486,16 @@ def main():
         for k in order:
             f.write(f"  {json.dumps(k)}: {json.dumps(ref_out[k])},\n")
         f.write("};\n")
+        # How far apart two sources put the HQ in one shared year, keyed by the frame the trail lands on.
+        gaps = {"isimip-hist/1850": (1850, "hyde/1850", "isimip-hist/1850"),
+                "ghsl/1975": (1975, "isimip-hist/1975", "ghsl/1975")}
+        for s in SSPS:
+            gaps[f"ssp{s}/2035"] = (2030, "ghsl/2030", f"ssp{s}/2030")
+        f.write("FAIR.seams = {\n")
+        for k, (y, a, b) in gaps.items():
+            gap = {"year": y, "km": round(km(res[a]["median"], res[b]["median"]), 1)}
+            f.write(f"  {json.dumps(k)}: {json.dumps(gap)},\n")
+        f.write("};\n")
 
     # ---------------------------------------------------------------- checks.md
     L = []

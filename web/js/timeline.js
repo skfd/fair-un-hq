@@ -105,10 +105,11 @@
       var g = svg.append("g").attr("transform", "translate(" + xm + "," + ym + ")");
       g.append("circle").attr("r", 5.5).attr("fill", "#0b1128").attr("stroke", "#fff").attr("stroke-width", 1.4);
       g.append("line").attr("x1", -2.6).attr("x2", 2.6).attr("stroke", "#fff").attr("stroke-width", 1.4);
-      var km = a && b ? FairSolver.km(a.x, b.x) : null;
-      g.append("title").text("Seam " + HQ.yearLabel(f.prev.year) + " → " + HQ.yearLabel(f.year) + ": " + HQ.SERIES_LABEL[f.prev.sid] + " → " + HQ.SERIES_LABEL[f.sid] +
-        (km != null ? ". The HQ jumps " + HQ.fmt(km) + " km across it." : "."));
-      if (km != null) g.append("text").attr("y", -10).attr("text-anchor", "middle").attr("font-size", 10).attr("fill", "#c8c4e4").text(HQ.fmt(km) + " km");
+      var km = a && b ? FairSolver.km(a.x, b.x) : null, label = f.gap ? f.gap.km : km;
+      g.append("title").text("Seam " + HQ.yearLabel(f.prev.year) + " → " + HQ.yearLabel(f.year) + ": " + HQ.SERIES_LABEL[f.prev.sid] + " → " + HQ.SERIES_LABEL[f.sid] + "." +
+        (f.gap ? " In " + HQ.yearLabel(f.gap.year) + " the two sources put the HQ " + HQ.fmt(f.gap.km) + " km apart." : "") +
+        (km != null ? " The trail steps " + HQ.fmt(km) + " km across the join." : ""));
+      if (label != null) g.append("text").attr("y", -10).attr("text-anchor", "middle").attr("font-size", 10).attr("fill", "#c8c4e4").text(HQ.fmt(label) + " km");
     });
     // frame ticks
     D.frames.forEach(function (f) {

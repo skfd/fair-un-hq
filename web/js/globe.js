@@ -333,7 +333,8 @@
       var f = s.f, km = S.km(s.a, s.b);
       out.push({ x: p.x, y: p.y, r: 6, html: function () {
         return "<b>Seam, " + HQ.yearLabel(f.prev.year) + " → " + HQ.yearLabel(f.year) + "</b><br>" + HQ.esc(HQ.SERIES_LABEL[f.prev.sid]) + " hands over to " + HQ.esc(HQ.SERIES_LABEL[f.sid]) +
-          ".<br>The point jumps <b>" + HQ.fmt(km) + " km</b> here. Drawn as a seam, not smoothed over.";
+          ".<br>" + (f.gap ? "In " + HQ.yearLabel(f.gap.year) + " the two put the point <b>" + HQ.fmt(f.gap.km) + " km</b> apart. The trail steps " + HQ.fmt(km) + " km here."
+            : "The point jumps <b>" + HQ.fmt(km) + " km</b> here.") + " Drawn as a seam, not smoothed over.";
       } });
     });
     return out;
