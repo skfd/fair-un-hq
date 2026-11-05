@@ -31,8 +31,10 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
   - **Worst-off.** A clipped minimax, kept separate from the dial: minimise the distance
     that covers 99% or 99.9% of people. In 2020 the 99.9% point is near Jordan and the 99%
     point is in Libya.
-  - **Country vs person.** One country, one vote: the median of the member states' capitals.
-    Compare it with one person, one vote.
+  - **Country vs person.** One country, one vote: the median of the member states' capitals,
+    weighted equally. Compare it with one person, one vote. Each country's own population
+    median was considered and dropped: capitals are easy to explain and to see on the globe
+    (decided 2026-11-05).
   - **k HQs.** The optimal 2, 3 or 4 offices (spherical k-medians), with the world coloured
     by which office each person is closest to. No comparison with real UN offices.
 - **Show the calculation, not just the answer** (2026-10-31). The reader should be able to
@@ -72,9 +74,10 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
   floating HQ barge.
 - **Extra toys:**
   - **Weight by…** Urban only or rural only. HYDE and ISIMIP carry an urban/rural split
-    (HYDE has no town dwellers in 10,000 BC, so that one frame has none). For GHSL epochs v1
-    borrows ISIMIP's per-cell urban share. GHS-SMOD would be the honest source,
-    but it ships only at 1 km Mollweide.
+    (HYDE has no town dwellers in 10,000 BC, so that one frame has none). GHSL epochs borrow
+    ISIMIP's per-cell urban share. GHS-SMOD would match GHSL better, but it ships only at
+    1 km Mollweide, for one side toy in 12 frames, and would add a jump in what "urban" means
+    at 1975 and 2035. Dropped (decided 2026-11-05).
   - **Drift speed.** Headline numbers per epoch, like "the HQ would have to crawl N metres
     a day".
   - **Relocation postcard.** A shareable card with the new capital's nearest town, the
@@ -82,11 +85,8 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
 
 ## Still open
 
-- **GHS-SMOD for urban/rural** in GHSL epochs, replacing the borrowed ISIMIP share.
-- **The country-vote point per state.** v1 uses each UN member state's capital, weighted
-  equally. A refinement would use each country's own population median.
 - **Wikipedia blurbs** for the nearest-town card. The town names come from GeoNames
-  `cities15000`.
+  `cities5000`.
 
 
 ## Leads (unverified, evaluate before using)
@@ -203,6 +203,6 @@ record (decided 2026-11-05).
     to 600 ms in the worst frames). It runs on one Web Worker, with a main-thread fallback,
     so the page holds about 60 fps while the pin catches up. A pool would not help much:
     descent steps are sequential. At 2560×1440 without a GPU the drag runs at about 40 fps.
-  - GHS-SMOD for urban/rural is still pending.
+    Accepted for now (2026-11-05).
   - The page downloads all its data before it draws, about 17 MB gzipped. Accepted for now
     (2026-11-05).
