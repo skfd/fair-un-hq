@@ -183,8 +183,15 @@ record (decided 2026-11-05).
     in mean trip length (7,676 km). Leaving out HYDE's 1,224 town dwellers ("Country folk")
     tips the HQ across the Atlantic.
   - From 0 AD to 1700 it stays around Delhi, wandering between Punjab and the Nepal border.
-    From 1700 it climbs north-east into Tibet, peaking at 34.8° N, 88.7° E in 1840, before
-    the modern drift back west to Punjab.
+    From 1700 it climbs north-east into Tibet, reaching its easternmost point, 34.8° N,
+    88.7° E, in 1840. It then swings north-west to its northernmost, 40.9° N, 76.1° E, in
+    1910, before the modern drift south and west to Punjab.
+  - That 1900–1910 swing is partly a source artefact (checked 2026-11-05). 1900/1901 is not
+    a seam: the two ISIMIP files agree there to 2 parts per million. But HYDE, which ISIMIP
+    inherits, cuts India by 6.9% that decade where the census says +5.75%. Holding India to
+    the census shrinks the 384 km shift to about 206–230 km, and the 1910 peak survives.
+    Population before 1950 is also linear between decades, so drift speeds there are decade
+    averages.
   - The 1850 seam is clean: HYDE 3.3 and ISIMIP's 1850 put the HQ 6 km apart, with
     totals within 0.2%.
   - It drifts west through Baluchistan by 2100 (SSP1/SSP5), or to near Abqaiq in Saudi
