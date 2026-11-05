@@ -72,6 +72,7 @@
   G.isDragging = function () { return !!(drag && drag.moved && !drag.pin); };   // spinning, not moving the pin
   G.zoomBy = function (f) { zoom = Math.max(0.7, Math.min(9, zoom * f)); dirty = true; };
   G.rotation = function () { return rot.slice(); };
+  G.landLo = function () { return landLo; };
 
   function targetRot(x) { var a = S.toLatLon(x); return [-a[1], Math.max(-75, Math.min(75, -a[0])), 0]; }
   G.jumpTo = function (x) { if (x) { rot = targetRot(x); dirty = true; } };

@@ -5,7 +5,9 @@
 //
 // The slow searches (global Fibonacci, worst-off, k-medians) are generators that yield now
 // and then; FairSolver.run() drains one synchronously, the page pumps them in time slices.
-(function (G) {
+//
+// The function is named so FairSolver.source can hand its own text to dialworker.js.
+(function fairSolver(G) {
   "use strict";
   var R_KM = 6371.0088;
   var D2R = Math.PI / 180;
@@ -347,7 +349,7 @@
   function run(gen) { var r; do { r = gen.next(); } while (!r.done); return r.value; }
 
   G.FairSolver = {
-    stats: stats,
+    stats: stats, source: fairSolver.toString(),
     R_KM: R_KM, toXYZ: toXYZ, toLatLon: toLatLon, unit: unit, angle: angle, km: km,
     gridXYZ: gridXYZ, makePop: makePop, cost: cost, sumPow: sumPow, centroid: centroid,
     fairPoint: fairPoint, fibonacci: fibonacci,
