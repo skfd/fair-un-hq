@@ -439,7 +439,7 @@
       links.push(wiki(title, "", "Wikipedia"));
       B.sec[k].forEach(function (anchor, j) { if (anchor) links.push(wiki(title, anchor, SECTION_NAMES[j])); });
     }
-    links.push(maps(T.x, "Google Maps"));
+    if (!sea) links.push(maps(T.x, "Google Maps"));   // at sea the exact spot's link is the one
     $("townLinks").innerHTML = links.join(" · ");
   }
   function countryLink(T) {

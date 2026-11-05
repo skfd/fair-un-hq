@@ -137,7 +137,8 @@ Settled in a brainstorm (2026-10-24); change on purpose, not by drift.
   10–60 km of the real one (245 km in 10,000 BC, where the bowl is flat).
 - Only towns the card can actually name get Wikipedia data. It follows the solved HQ, not the
   dragged pin, so `scripts/build_landings.js` sweeps every frame, weighting and dial stop.
-  Towns match through their GeoNames id on Wikidata, never by title.
+  Towns match through their GeoNames id on Wikidata, never by title. The sweep walks the dial
+  upwards, so a town reached only by dragging it down would show just the joke.
 - HYDE's uneven steps are shipped as they are, not resampled to 5 years. The timeline is
   piecewise linear (10,000 BC–0 AD, 0–1700, 1700–1850, 1850–2100 at 13/9/8/70% of its
   width), and Play runs from 10,000 BC.

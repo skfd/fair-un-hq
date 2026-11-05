@@ -184,6 +184,7 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 .switch input:checked::after { left: 16px; }
 .more { font-size: 12px; color: var(--ink-3); margin-top: 6px; line-height: 1.5; }
 .more a { color: var(--ink-2); white-space: nowrap; }
+.more:empty { display: none; }
 .note + .more { margin: 2px 0 6px 86px; }
 .coords a, .welcome .where a { color: inherit; }
 .note { font-size: 12.5px; color: var(--ink-2); margin: 4px 0 2px 86px; line-height: 1.4; min-height: 1em; }
