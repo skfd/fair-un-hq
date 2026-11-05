@@ -512,6 +512,8 @@
       " km a year. A garden snail could cover a day's crawl in " + (snailMin < 90 ? fmt(snailMin) + " minutes" : fmt(snailMin / 60, 1) + " hours") + ", then nap.";
     if (F.seam) warn.innerHTML = '<div class="warn">Careful: this step crosses a data seam (' + esc(HQ.SERIES_LABEL[F.prev.sid]) + " → " +
       esc(HQ.SERIES_LABEL[F.sid]) + "). Part of the jump is the change of source, not people moving.</div>";
+    else if (F.sid === "isimip-hist" && F.year <= 1950) warn.innerHTML = '<div class="warn">Careful: this source only knows people by the decade, so this is a decade\'s average pace.' +
+      (F.year === 1905 || F.year === 1910 ? " About 40% of this decade's swing is the source too: it cuts India by 7% where the census shows growth." : "") + "</div>";
   }
 
   function legend() {

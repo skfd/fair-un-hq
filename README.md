@@ -191,7 +191,7 @@ record (decided 2026-11-05).
     inherits, cuts India by 6.9% that decade where the census says +5.75%. Holding India to
     the census shrinks the 384 km shift to about 206–230 km, and the 1910 peak survives.
     Population before 1950 is also linear between decades, so drift speeds there are decade
-    averages.
+    averages. The Drift card says both.
   - The 1850 seam is clean: HYDE 3.3 and ISIMIP's 1850 put the HQ 6 km apart, with
     totals within 0.2%.
   - It drifts west through Baluchistan by 2100 (SSP1/SSP5), or to near Abqaiq in Saudi
