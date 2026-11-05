@@ -199,8 +199,10 @@ record (decided 2026-11-05).
   - The worst-off (99.9%) point has two real basins, the Levant and the North Pole, and
     flips between them.
 - **Known gaps:**
-  - A dial tick above p=2 takes about 70–110 ms, against a 50 ms target. A Web Worker pool
-    would fix that.
+  - Above p=2, a 0.1 step of the dial still takes about 120–300 ms of solving to settle (up
+    to 600 ms in the worst frames). It runs on one Web Worker, with a main-thread fallback,
+    so the page holds about 60 fps while the pin catches up. A pool would not help much:
+    descent steps are sequential. At 2560×1440 without a GPU the drag runs at about 40 fps.
   - GHS-SMOD for urban/rural is still pending.
   - The page downloads all its data before it draws, about 17 MB gzipped. Accepted for now
     (2026-11-05).
