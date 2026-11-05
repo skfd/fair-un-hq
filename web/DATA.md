@@ -92,6 +92,9 @@ page guesses a continent per cell from lat/lon.
   p > 2 use gradient descent with backtracking, because IRLS diverges there.
   - Run the Fibonacci global search once per frame at p = 1 and cache the result.
   - Warm-start every slider tick from the previous answer.
+  - The tick runs the same `fairPoint` in a worker (`js/dialworker.js`), built from a Blob of
+    `solver.js`'s own source because file:// allows nothing else, and on the main thread if
+    that worker cannot start.
 - **Worst-off:** clipped minimax. Minimise the distance that covers a share q of people
   (q = 0.99 / 0.999). This is not the p → ∞ limit of the dial.
 - **Centre of mass:** the 3D mean. `depth_km = (1 − |c|) · 6371`. The page no longer shows

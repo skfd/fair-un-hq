@@ -132,13 +132,22 @@
   var V = HQ.view = { F: null, M: "all", P: null, hq: null, worst: null, vote: null, offices: null, labels: null };
   var glob = new Map();    // F|M -> x of the global p=1 search
   var dialCache = new Map();
-  var dial = { key: null, x: null, t: undefined, done: true, fm: null };
+  var dial = { key: null, x: null, t: undefined, done: true, fm: null }, dialHeld = false;
   var worstCache = new Map(), kCache = new Map(), voteCache = new Map();
   var capP = (function () {
     var C = FAIR.capitals || [], xyz = new Float64Array(3 * C.length), w = new Float64Array(C.length);
     C.forEach(function (c, i) { var v = S.toXYZ(c.lat, c.lon); xyz[3 * i] = v[0]; xyz[3 * i + 1] = v[1]; xyz[3 * i + 2] = v[2]; w[i] = 1; });
     return S.makePop(xyz, w);
   })();
+
+  // The vote depends only on p, so every stop of the dial is worked out ahead of time, in the
+  // background: left to the first drag it would cost each tick about 13 ms.
+  function* votesGen() {
+    for (var i = 10; i <= 80; i++) {
+      var vk = (i / 10).toFixed(1);
+      if (!voteCache.has(vk)) voteCache.set(vk, (yield* S.fairPointGlobalGen(capP, i / 10, 200)).x);
+    }
+  }
 
   function fmKey() { return V.F.key + "|" + V.M; }
   function p1Base() {
@@ -221,7 +230,7 @@
       // While playing, only turn the globe when the HQ wanders away from the middle.
       if (!opts.noFly) HQ.Globe.flyTo(V.hq || p1Base(), state.playing ? 600 : 900, false, state.playing ? 12 : 0);
     }
-    refreshCards();
+    if (opts.dial) { caption(); throttledCards(); } else refreshCards();
     var tlKey = state.year + state.branch;
     if (frameChanged || tlKey !== lastTlKey) { lastTlKey = tlKey; HQ.Timeline.update(); }
     HQ.Globe.invalidate();
@@ -234,7 +243,8 @@
     V.labels = r.fm === fmKey() && r.labels.length === V.P.n ? r.labels : null;
   }
 
-  // The dial: warm-started, resumable, solved a slice per animation frame.
+  // The dial: warm-started and resumable. Solved on a worker, or failing that a slice per
+  // animation frame here. The cards follow at their own pace (throttledCards) while it moves.
   function retarget() {
     var key = fmKey() + "|" + state.p.toFixed(1);
     if (dial.key === key) return;
@@ -243,23 +253,47 @@
     if (dialCache.has(key)) { finish(key, dialCache.get(key)); return; }
     var sameFm = dial.fm === fm && dial.x;
     var start = sameFm ? dial.x : p1Base();
-    dial = { key: key, fm: fm, x: start, t: undefined, done: false, p: state.p, P: V.P, t0: now(), ms: 0, passes: 0, iters: 0, stage: "quick" };
+    dial = { key: key, fm: fm, x: start, t: undefined, done: false, p: state.p, P: V.P, t0: now(), ms: 0, passes: 0, iters: 0, stage: "quick", from: sameFm ? dial.from : 0 };
     if (!sameFm || !V.hq) V.hq = start;
   }
   function finish(key, x) {
     dial = { key: key, fm: fmKey(), x: x, done: true, p: state.p };
     V.hq = x;
-    refreshCards();
+    DW.stop();
+    throttledCards();
   }
   var DIAL_TOL = 1e-5, POLISH_TOL = 1e-7;   // 64 m and 0.6 m. fair.py's 1e-12 default is for the reference.
   HQ.lastTick = null;
+  // Requests to the worker are numbered. dial.seq is the newest, dial.from the first of the
+  // unbroken run the dial is on: a new frame or a cached answer breaks the run, and anything
+  // from before that is dropped. Within a run answers arrive in order, each carrying on from the
+  // last, so a fast drag shows the pin catching up; but only an answer to the newest request can
+  // say it has converged, so nothing out of date ever ends up as the answer for this p.
+  var dialSeq = 0;
+  var DW = HQ.dialWorker = FairDialWorker.start(function (m) {
+    if (!dial.from || m.seq < dial.from) return;
+    dial.x = m.x; dial.t = m.t; dial.iters += m.iters; dial.ms += m.ms; dial.passes += m.passes;
+    dial.converged = m.converged && m.seq === dial.seq;
+  });
   // Two stages: a quick solve to DIAL_TOL (64 m: far below a pixel) while the dial moves, then,
   // once it has rested for a moment, a polish to POLISH_TOL from the same x and step size.
   HQ.tick = function () {   // called by the globe's animation loop
     settleTick();
     if (dial.done) return;
     if (dial.stage === "polish" && now() < dial.polishAt) return;
-    var t0 = now(), budget = 28, it = dial.p > 2 ? 2 : 4, tol = dial.stage === "polish" ? POLISH_TOL : DIAL_TOL;
+    var tol = dial.stage === "polish" ? POLISH_TOL : DIAL_TOL;
+    if (DW.live) {
+      if (!dial.seq) {
+        var keep = !!dial.from;
+        dial.seq = ++dialSeq;
+        if (!keep) dial.from = dial.seq;
+        DW.solve(dial.P, dial.seq, dial.p, dial.x, dial.t, tol, keep);
+      }
+      // Compare x, not a flag: a drag retargets every frame, and retarget() keeps x but no flags.
+      if (dial.converged || dial.x !== V.hq) { var c = dial.converged; dial.converged = false; dialMoved(c); }
+      return;
+    }
+    var t0 = now(), budget = 28, it = dial.p > 2 ? 2 : 4;
     var pass0 = S.stats.passes;
     while (true) {
       var r = S.fairPoint(dial.P, dial.p, dial.x, { iters: it, tol: tol, t: dial.t });
@@ -269,13 +303,17 @@
     }
     dial.ms += now() - t0;
     dial.passes += S.stats.passes - pass0;
+    dialMoved(r.converged);
+  };
+  function dialMoved(converged) {
     V.hq = dial.x;
     HQ.Globe.invalidate();
-    if (!r.converged) { throttledCards(); return; }
+    if (!converged) { throttledCards(); return; }
+    dial.seq = 0;
     if (dial.stage !== "polish") {
       HQ.lastTick = { key: dial.key, ms: dial.ms, wall: now() - dial.t0, iters: dial.iters, passes: dial.passes };
       HQ.Globe.flyTo(dial.x, 700, false, 40);   // only if the dial dragged it off towards the limb
-      refreshCards();
+      throttledCards();
       dial.stage = "polish"; dial.polishAt = now() + 300;
       dial.ms = 0; dial.passes = 0; dial.iters = 0;
     } else {
@@ -284,7 +322,7 @@
       HQ.lastPolish = { key: dial.key, ms: dial.ms, passes: dial.passes, iters: dial.iters };
       refreshCards();
     }
-  };
+  }
   var cardTimer = null;
   function throttledCards() {
     if (cardTimer) return;
@@ -327,7 +365,9 @@
       pop: T.pop[best], x: tx, km: S.km(tx, x), dir: bearing(tx, x),
     };
   };
-  HQ.atSea = function (x) { var a = S.toLatLon(x); return !d3.geoContains(HQ.land, [a[1], a[0]]); };
+  // While the dial is held the thinned coastline will do, as it does for the globe in motion: the
+  // full one costs a frame on its own. Letting go asks again with the real coast.
+  HQ.atSea = function (x, rough) { var a = S.toLatLon(x); return !d3.geoContains(rough ? HQ.Globe.landLo() : HQ.land, [a[1], a[0]]); };
 
   var BLURBS = [
     "Expect a sudden boom in lanyard sales.",
@@ -382,7 +422,7 @@
 
   var lastTownKey = null;
   function welcome(x) {
-    var T = HQ.nearestTown(x), sea = HQ.atSea(x);
+    var T = HQ.nearestTown(x), sea = HQ.atSea(x, dialHeld);
     var key = (T ? T.name : "") + sea + Math.round(T ? T.km : 0);
     $("townCoords").textContent = "The exact spot: " + ll(x);
     if (key === lastTownKey) return;
@@ -799,7 +839,11 @@
   seg("segK", "k", Number);
   seg("segMode", "mode", String);
   $("voteToggle").addEventListener("change", function (ev) { state.vote = ev.target.checked; update(); });
-  $("dial").addEventListener("input", function (ev) { state.p = Math.round(+ev.target.value * 10) / 10; update({ noFly: true }); });
+  $("dial").addEventListener("input", function (ev) { dialHeld = true; state.p = Math.round(+ev.target.value * 10) / 10; update({ noFly: true, dial: true }); });
+  // Both: arrow keys never raise pointerup, and a drag back to where it began never raises change.
+  function dialLetGo() { if (dialHeld) { dialHeld = false; refreshCards(); } }
+  $("dial").addEventListener("change", dialLetGo);
+  window.addEventListener("pointerup", dialLetGo);
 
   var bWrap = $("branches");
   ["ssp1", "ssp3", "ssp5"].forEach(function (b) {
@@ -861,6 +905,7 @@
   window.addEventListener("resize", function () { HQ.Globe.resize(); HQ.Timeline.update(); });
   update();
   HQ.Globe.jumpTo(V.hq || p1Base());
+  if (capP.n) addJob("votes", 8, null, votesGen(), function () {});
   addJob("chain", 9, null, chainGen(), chainDone);
   HQ.ready = true;
 })();
